@@ -1,3 +1,7 @@
+// Scala configuration
+ThisBuild / crossScalaVersions := Seq("2.13.8")
+ThisBuild / scalaVersion       := crossScalaVersions.value.head
+
 // Scalafix configuration
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
@@ -6,35 +10,48 @@ ThisBuild / scalafixDependencies ++= Seq(
 )
 
 // SCoverage configuration
-ThisBuild / coverageFailOnMinimum := true
-ThisBuild / coverageMinimumStmtTotal := 80
-ThisBuild / coverageMinimumBranchTotal := 80
-ThisBuild / coverageMinimumStmtPerPackage := 80
+ThisBuild / coverageFailOnMinimum           := true
+ThisBuild / coverageMinimumStmtTotal        := 80
+ThisBuild / coverageMinimumBranchTotal      := 80
+ThisBuild / coverageMinimumStmtPerPackage   := 80
 ThisBuild / coverageMinimumBranchPerPackage := 80
-ThisBuild / coverageMinimumStmtPerFile := 50
-ThisBuild / coverageMinimumBranchPerFile := 50
+ThisBuild / coverageMinimumStmtPerFile      := 50
+ThisBuild / coverageMinimumBranchPerFile    := 50
 
 // -- Lib versions
-lazy val libVersion = new {
-  val zio = "2.0.0-RC1"
-}
+lazy val libVersion =
+  new {
+    val zio       = "2.0.0-RC1"
+    val zioConfig = "3.0.0-RC1"
+    val sttp      = "3.4.0"
+    val circe     = "0.14.1"
+  }
 
 // -- Main project settings
 lazy val core =
   (project in file("core"))
-  .settings(
-    libraryDependencies ++= Seq(
-      "dev.zio"          %% "zio-test"     % libVersion.zio       % Test,
-      "dev.zio"          %% "zio-test-sbt" % libVersion.zio       % Test,
-      "dev.zio"          %% "zio"          % libVersion.zio,
-    ),
-    testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
-  )
+    .settings(
+      libraryDependencies ++= Seq(
+        "dev.zio"                       %% "zio-test"                      % libVersion.zio % Test,
+        "dev.zio"                       %% "zio-test-sbt"                  % libVersion.zio % Test,
+        "dev.zio"                       %% "zio"                           % libVersion.zio,
+        "dev.zio"                       %% "zio-config"                    % libVersion.zioConfig,
+        "dev.zio"                       %% "zio-config-magnolia"           % libVersion.zioConfig,
+        "dev.zio"                       %% "zio-config-refined"            % libVersion.zioConfig,
+        "com.softwaremill.sttp.client3" %% "core"                          % libVersion.sttp,
+        "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % libVersion.sttp,
+        "com.softwaremill.sttp.client3" %% "circe"                         % libVersion.sttp,
+        "io.circe"                      %% "circe-generic"                 % libVersion.circe,
+        "io.circe"                      %% "circe-generic-extras"          % libVersion.circe
+      ),
+      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+      scalacOptions += "-Ymacro-annotations"
+    )
 
 lazy val benchmark =
   (project in file("benchmark"))
-  .enablePlugins(JmhPlugin)
-  .dependsOn(core)
+    .enablePlugins(JmhPlugin)
+    .dependsOn(core)
 
 lazy val metadataSettings =
   Def.settings(
@@ -43,19 +60,19 @@ lazy val metadataSettings =
     organizationName     := "Univalence",
     organizationHomepage := Some(url("https://univalence.io/")),
     // -- Project
-    name        := "Crier",
-    version     := "0.1.0",
-    description := "Take pages from notion and post them on Linkedin and Twitter daily",
-    startYear   := Some(2022),
-    licenses    += ("Apache-2.0" → new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-    homepage    := Some(url("https://github.com/univalence/crier")),
+    name                     := "Crier",
+    version                  := "0.1.0",
+    description              := "Take pages from notion and post them on Linkedin and Twitter daily",
+    startYear                := Some(2022),
+    licenses += ("Apache-2.0" → new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
+    homepage                 := Some(url("https://github.com/univalence/crier")),
     // -- Contributors
     developers := List(
       Developer(
-        id = "dylandoamaral",
-        name = "Dylan Do Amaral",
+        id    = "dylandoamaral",
+        name  = "Dylan Do Amaral",
         email = "dylan@univalence.io",
-        url = url("https://github.com/dylandoamaral")
+        url   = url("https://github.com/dylandoamaral")
       )
     ),
     scmInfo := Some(
@@ -63,11 +80,6 @@ lazy val metadataSettings =
         url("https://github.com/univalence/crier"),
         "scm:git:https://github.com/univalence/crier.git",
         "scm:git:git@github.com:univalence/crier.git"
-      ))
-  )
-
-lazy val scalaSettings =
-  Def.settings(
-    crossScalaVersions := Seq("2.13.8"),
-    scalaVersion       := crossScalaVersions.value.head,
+      )
+    )
   )
