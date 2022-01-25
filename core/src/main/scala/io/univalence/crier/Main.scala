@@ -293,7 +293,7 @@ object Main extends ZIOAppDefault {
   /**
    * Return True if the validator system should check the page or not.
    */
-  def shouldBeChecked(page: NotionPageAugmented): Boolean =
+  def shouldBeChecked(page: NotionPage): Boolean =
     page.properties.status.map(_.select.name).getOrElse(NotValid) match {
       case Posted => false
       case _      => true
@@ -302,9 +302,9 @@ object Main extends ZIOAppDefault {
   def validateDatabasePages: ZIO[Console with NotionApi, Throwable, Unit] =
     for {
       database <- NotionApi(_.retrieveDatabase())
-      pages    <- NotionApi(_.augmentAllPages(database.results))
-      pagesToValidate = pages.filter(shouldBeChecked)
-      _ <- NotionApi(_.updateAllPages(pagesToValidate))
+      pages = database.results.filter(shouldBeChecked)
+      pagesToValidate <- NotionApi(_.augmentAllPages(pages))
+      _               <- NotionApi(_.updateAllPages(pagesToValidate))
     } yield ()
 
   def program: ZIO[Console with NotionApi, Throwable, Unit] = validateDatabasePages
