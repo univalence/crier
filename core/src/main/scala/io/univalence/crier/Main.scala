@@ -142,7 +142,6 @@ object Main extends ZIOAppDefault {
       plainText: String
   )
 
-  @ConfiguredJsonCodec
   case class NotionBlocks(
       results: List[NotionBlock]
   )
@@ -161,7 +160,35 @@ object Main extends ZIOAppDefault {
 
     def retrieveBlocks(pageId: String): Task[NotionBlocks]
 
-    def updatePage(pageId: String, publicationDate: LocalDate, status: PostStatus): Task[Unit]
+    def updatePage(pageId: String, publicationDate: Option[LocalDate], status: PostStatus): Task[Unit]
+
+    def augmentPage(page: NotionPage, blocks: NotionBlocks): NotionPageAugmented =
+      NotionPageAugmented(
+        id          = page.id,
+        createdTime = page.createdTime,
+        properties  = page.properties,
+        text        = blocks.results.map(_.paragraph.text.map(_.plainText).mkString("\n")).mkString("\n")
+      )
+
+    def augmentAllPages(pages: List[NotionPage]): ZIO[NotionApi, Throwable, List[NotionPageAugmented]] =
+      ZIO.collectAll(
+        pages.map(page =>
+          for {
+            blocks <- retrieveBlocks(page.id)
+          } yield augmentPage(page, blocks)
+        )
+      )
+
+    def updateAllPages(pages: List[NotionPageAugmented]): ZIO[NotionApi, Throwable, List[Unit]] =
+      ZIO.collectAll(
+        pages.map(page =>
+          updatePage(
+            page.id,
+            page.properties.publicationDate.map(_.date.start),
+            if (validatePage.predicate(page)) Pending else NotValid
+          )
+        )
+      )
   }
 
   object NotionApi extends Accessible[NotionApi]
@@ -196,7 +223,19 @@ object Main extends ZIOAppDefault {
       Api.succeedOrDieWithLog(sttp.send(request))
     }
 
-    override def updatePage(pageId: String, publicationDate: LocalDate, status: PostStatus): Task[Unit] = {
+    override def updatePage(pageId: String, publicationDate: Option[LocalDate], status: PostStatus): Task[Unit] = {
+      val stringifiedPublicationDate =
+        publicationDate match {
+          case Some(date) =>
+            s"""
+               |,"Date de publication": {
+               |   "date": {
+               |       "start": "$date"
+               |   }
+               |}
+               |""".stripMargin
+          case None => ""
+        }
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -208,12 +247,8 @@ object Main extends ZIOAppDefault {
                |            "select": {
                |                "name": "${PostStatus.toNotion(status)}"
                |            }
-               |        },
-               |        "Date de publication": {
-               |            "date": {
-               |                "start": "${publicationDate.toString}"
-               |            }
                |        }
+               |        $stringifiedPublicationDate
                |    }
                |}
                |""".stripMargin
@@ -235,14 +270,6 @@ object Main extends ZIOAppDefault {
       }
   }
 
-  def augmentPage(page: NotionPage, blocks: NotionBlocks): NotionPageAugmented =
-    NotionPageAugmented(
-      id          = page.id,
-      createdTime = page.createdTime,
-      properties  = page.properties,
-      text        = blocks.results.map(_.paragraph.text.map(_.plainText).mkString("\n")).mkString("\n")
-    )
-
   case class NotionPageValidator(predicate: NotionPageAugmented => Boolean) {
     def and(that: NotionPageValidator): NotionPageValidator =
       NotionPageValidator((page: NotionPageAugmented) => predicate(page) && that.predicate(page))
@@ -263,38 +290,21 @@ object Main extends ZIOAppDefault {
 
   val validatePage: NotionPageValidator = sizeValidator and minimumKeywordsValidator and mandatoryTypeValidator
 
+  /**
+   * Return True if the validator system should check the page or not.
+   */
+  def shouldBeChecked(page: NotionPageAugmented): Boolean =
+    page.properties.status.map(_.select.name).getOrElse(NotValid) match {
+      case Posted => false
+      case _      => true
+    }
+
   def validateDatabasePages: ZIO[Console with NotionApi, Throwable, Unit] =
     for {
       database <- NotionApi(_.retrieveDatabase())
-      pages <-
-        ZIO.collectAll(
-          database.results.map(page =>
-            for {
-              blocks <- NotionApi(_.retrieveBlocks(page.id))
-            } yield augmentPage(page, blocks)
-          )
-        )
-      pagesToValidate =
-        pages.filter(_.properties.status match {
-          case Some(s) =>
-            s.select.name match {
-              case Posted => false
-              case _      => true
-            }
-          case None => true
-        })
-      _ <-
-        ZIO.collectAll(
-          pagesToValidate.map(page =>
-            NotionApi(
-              _.updatePage(
-                page.id,
-                LocalDate.of(2022, 1, 1),
-                if (validatePage.predicate(page)) Pending else NotValid
-              )
-            )
-          )
-        )
+      pages    <- NotionApi(_.augmentAllPages(database.results))
+      pagesToValidate = pages.filter(shouldBeChecked)
+      _ <- NotionApi(_.updateAllPages(pagesToValidate))
     } yield ()
 
   def program: ZIO[Console with NotionApi, Throwable, Unit] = validateDatabasePages
