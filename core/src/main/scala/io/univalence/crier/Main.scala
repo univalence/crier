@@ -14,7 +14,7 @@ import zio.config._
 import zio.config.magnolia.DeriveConfigDescriptor.descriptor
 import zio.config.refined._
 
-import java.time.{LocalDate, ZonedDateTime}
+import java.time.{DayOfWeek, LocalDate, ZonedDateTime}
 
 object Main extends ZIOAppDefault {
 
@@ -94,17 +94,17 @@ object Main extends ZIOAppDefault {
       case v           => Left(s"$v is not a valid status")
     }
 
-  case class NotionSelectFrom[T](id: String, name: T, color: String)
+  case class NotionSelectFrom[T](name: T)
 
-  case class NotionSelectProperty[T](id: String, select: NotionSelectFrom[T])
+  case class NotionSelectProperty[T](select: NotionSelectFrom[T])
 
   @annotation.nowarn // https://github.com/circe/circe/issues/1411
   @ConfiguredJsonCodec
-  case class NotionMultiSelectProperty[T](id: String, @JsonKey("multi_select") selects: List[NotionSelectFrom[T]])
+  case class NotionMultiSelectProperty[T](@JsonKey("multi_select") selects: List[NotionSelectFrom[T]])
 
   case class NotionDate(start: LocalDate)
 
-  case class NotionDateProperty(id: String, date: NotionDate)
+  case class NotionDateProperty(date: NotionDate)
 
   implicit val config: CirceConfiguration = CirceConfiguration.default
 
@@ -160,7 +160,7 @@ object Main extends ZIOAppDefault {
 
     def retrieveBlocks(pageId: String): Task[NotionBlocks]
 
-    def updatePage(pageId: String, publicationDate: Option[LocalDate], status: PostStatus): Task[Unit]
+    def updatePage(page: NotionPageAugmented): Task[Unit]
 
     def augmentPage(page: NotionPage, blocks: NotionBlocks): NotionPageAugmented =
       NotionPageAugmented(
@@ -180,15 +180,7 @@ object Main extends ZIOAppDefault {
       )
 
     def updateAllPages(pages: List[NotionPageAugmented]): ZIO[NotionApi, Throwable, List[Unit]] =
-      ZIO.collectAll(
-        pages.map(page =>
-          updatePage(
-            page.id,
-            page.properties.publicationDate.map(_.date.start),
-            if (validatePage.predicate(page)) Pending else NotValid
-          )
-        )
-      )
+      ZIO.collectAll(pages.map(updatePage))
   }
 
   object NotionApi extends Accessible[NotionApi]
@@ -223,19 +215,26 @@ object Main extends ZIOAppDefault {
       Api.succeedOrDieWithLog(sttp.send(request))
     }
 
-    override def updatePage(pageId: String, publicationDate: Option[LocalDate], status: PostStatus): Task[Unit] = {
-      val stringifiedPublicationDate =
-        publicationDate match {
+    override def updatePage(page: NotionPageAugmented): Task[Unit] = {
+      val stringifiedPublicationDateJson =
+        page.properties.publicationDate.map(_.date.start) match {
           case Some(date) =>
             s"""
-               |,"Date de publication": {
+               |"Date de publication": {
                |   "date": {
                |       "start": "$date"
                |   }
                |}
                |""".stripMargin
-          case None => ""
+          case None =>
+            """
+              |"Date de publication": {
+              |   "date": null
+              |}
+              |""".stripMargin
         }
+
+      val stringifiedStatus = PostStatus.toNotion(page.properties.status.map(_.select.name).getOrElse(NotValid))
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -245,15 +244,15 @@ object Main extends ZIOAppDefault {
                |    "properties": {
                |        "Status": {
                |            "select": {
-               |                "name": "${PostStatus.toNotion(status)}"
+               |                "name": "$stringifiedStatus"
                |            }
-               |        }
-               |        $stringifiedPublicationDate
+               |        },
+               |        $stringifiedPublicationDateJson
                |    }
                |}
                |""".stripMargin
           )
-          .patch(uri"$url/pages/$pageId")
+          .patch(uri"$url/pages/${page.id}")
 
       // TODO: Much better error handling
       sttp.send(request).flatMap(r => ZIO.fromEither(r.body)).fold(e => throw new Exception(e.toString), _ => ())
@@ -299,16 +298,86 @@ object Main extends ZIOAppDefault {
       case _      => true
     }
 
-  def validateDatabasePages: ZIO[Console with NotionApi, Throwable, Unit] =
+  /**
+   * Sort pages to validate according to their creation time and the
+   * publication date.
+   */
+  def sortPagesForDateAttribution(pages: List[NotionPageAugmented]): List[NotionPageAugmented] =
+    pages.sortBy(_.createdTime).sortBy(_.properties.publicationDate.map(_.date.start).getOrElse(LocalDate.MAX))
+
+  /**
+   * Validate the pages according to our predicates and separate them
+   * between pending and other status.
+   */
+  def validateAndSeparatePages(
+      pages: List[NotionPageAugmented]
+  ): (List[NotionPageAugmented], List[NotionPageAugmented]) =
+    pages.map(validatePageStatus).partition(_.properties.status.map(_.select.name).getOrElse(NotValid) == Pending)
+
+  /** Update a page status */
+  def updateStatus(page: NotionPageAugmented, status: PostStatus): NotionPageAugmented =
+    page.copy(properties =
+      page.properties.copy(status =
+        Some(
+          NotionSelectProperty[PostStatus](select = NotionSelectFrom[PostStatus](status))
+        )
+      )
+    )
+
+  /** validate a page and update the status */
+  def validatePageStatus(page: NotionPageAugmented): NotionPageAugmented = {
+    val statusFor: NotionPageAugmented => PostStatus = page => if (validatePage.predicate(page)) Pending else NotValid
+
+    updateStatus(page, statusFor(page))
+  }
+
+  /** Update a page publication date */
+  def updatePagePublicationDate(page: NotionPageAugmented, publicationDate: Option[LocalDate]): NotionPageAugmented =
+    page.copy(properties =
+      page.properties.copy(publicationDate = publicationDate.map(d => NotionDateProperty(date = NotionDate(start = d))))
+    )
+
+  /** Attribute publication date to valid pages. */
+  def attributePublicationDateToPages(
+      pages: List[NotionPageAugmented]
+  ): ZIO[Clock, Nothing, List[NotionPageAugmented]] = {
+    val sortedPages = sortPagesForDateAttribution(pages)
+    val publicationDatesEffect =
+      ZIO.collectAll(
+        sortedPages
+          .scanLeft(Clock.localDateTime.map(_.toLocalDate.minusDays(1)))((previousDate, _) =>
+            previousDate.map(date =>
+              date.getDayOfWeek match {
+                case DayOfWeek.FRIDAY   => date.plusDays(3)
+                case DayOfWeek.SATURDAY => date.plusDays(2)
+                case _                  => date.plusDays(1)
+              }
+            )
+          )
+          .drop(1)
+      )
+
+    publicationDatesEffect.map(_.zip(sortedPages).map { case (date, page) =>
+      updatePagePublicationDate(page, Some(date))
+    })
+  }
+
+  /** @return */
+
+  def validateDatabasePages: ZIO[Clock with Console with NotionApi, Throwable, Unit] =
     for {
       database <- NotionApi(_.retrieveDatabase())
       pages = database.results.filter(shouldBeChecked)
-      pagesToValidate <- NotionApi(_.augmentAllPages(pages))
-      _               <- NotionApi(_.updateAllPages(pagesToValidate))
+      augmentedPages <- NotionApi(_.augmentAllPages(pages))
+      (pendingPages, notValidPages)       = validateAndSeparatePages(augmentedPages)
+      notValidPagesWithoutPublicationDate = notValidPages.map(updatePagePublicationDate(_, None))
+      _                               <- NotionApi(_.updateAllPages(notValidPagesWithoutPublicationDate))
+      pendingPagesWithPublicationDate <- attributePublicationDateToPages(pendingPages)
+      _                               <- NotionApi(_.updateAllPages(pendingPagesWithPublicationDate))
     } yield ()
 
-  def program: ZIO[Console with NotionApi, Throwable, Unit] = validateDatabasePages
+  def program: ZIO[Clock with Console with NotionApi, Throwable, Unit] = validateDatabasePages
 
   override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
-    program.provide(Console.live, configurationLayer, sttpLayer, NotionApiLive.layer)
+    program.provide(Clock.live, Console.live, configurationLayer, sttpLayer, NotionApiLive.layer)
 }
