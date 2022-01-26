@@ -9,6 +9,9 @@ import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 import sttp.client3.circe._
 
+import io.univalence.crier.Main.PostKind.{Library, Tips}
+import io.univalence.crier.Main.PostStatus.{NotValid, Pending, Posted}
+
 import zio._
 import zio.config._
 import zio.config.magnolia.DeriveConfigDescriptor.descriptor
@@ -47,13 +50,13 @@ object Main extends ZIOAppDefault {
 
   sealed trait PostStatus
 
-  case object Pending extends PostStatus
-
-  case object NotValid extends PostStatus
-
-  case object Posted extends PostStatus
-
   object PostStatus {
+    case object Pending extends PostStatus
+
+    case object NotValid extends PostStatus
+
+    case object Posted extends PostStatus
+
     def toNotion(status: PostStatus): String =
       status match {
         case Pending  => "Pending"
@@ -64,21 +67,22 @@ object Main extends ZIOAppDefault {
 
   sealed trait PostKind
 
-  case object Tips extends PostKind
-
-  case object Library extends PostKind
+  object PostKind {
+    case object Tips    extends PostKind
+    case object Library extends PostKind
+  }
 
   implicit val encodePostStatus: Encoder[PostStatus] =
     Encoder[String].contramap {
-      case Pending  => "Pending"
-      case NotValid => "Not valid"
-      case Posted   => "Posted"
+      case PostStatus.Pending  => "Pending"
+      case PostStatus.NotValid => "Not valid"
+      case PostStatus.Posted   => "Posted"
     }
 
   implicit val decodePostKind: Decoder[PostKind] =
     Decoder[String].emap {
-      case "Tips"    => Right(Tips)
-      case "Library" => Right(Library)
+      case "Tips"    => Right(PostKind.Tips)
+      case "Library" => Right(PostKind.Library)
       case v         => Left(s"$v is not a valid post")
     }
 
@@ -200,25 +204,23 @@ object Main extends ZIOAppDefault {
   }
 
   trait NotionApi {
-    def retrieveDatabase(): Task[RefinedNotionDatabase]
+    def retrieveDatabase: Task[RefinedNotionDatabase]
 
     def retrieveBlocks(pageId: String): Task[List[RefinedNotionBlock]]
 
     def updatePage(page: RefinedNotionPage): Task[Unit]
 
-    def retrieveAllPages(
+    final def retrieveAllPages(
         pageProperties: List[RefinedNotionProperties]
     ): ZIO[NotionApi, Throwable, List[RefinedNotionPage]] =
-      ZIO.collectAll(
-        pageProperties.map(properties =>
-          for {
-            blocks <- retrieveBlocks(properties.id)
-          } yield RefinedNotionPage(properties, blocks)
-        )
-      )
+      ZIO.foreach(pageProperties) { properties =>
+        for {
+          blocks <- retrieveBlocks(properties.id)
+        } yield RefinedNotionPage(properties, blocks)
+      }
 
-    def updateAllPages(pages: List[RefinedNotionPage]): ZIO[NotionApi, Throwable, List[Unit]] =
-      ZIO.collectAll(pages.map(updatePage))
+    final def updateAllPages(pages: List[RefinedNotionPage]): ZIO[NotionApi, Throwable, Unit] =
+      ZIO.foreach(pages)(updatePage).as(Unit)
   }
 
   object NotionApi extends Accessible[NotionApi]
@@ -231,7 +233,7 @@ object Main extends ZIOAppDefault {
         .bearer(configuration.notionBearer.toString())
         .header("Notion-Version", "2021-05-13")
 
-    override def retrieveDatabase(): Task[RefinedNotionDatabase] = {
+    override def retrieveDatabase: Task[RefinedNotionDatabase] = {
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -392,7 +394,7 @@ object Main extends ZIOAppDefault {
 
   def validateDatabasePages: ZIO[Clock with Console with NotionApi, Throwable, List[RefinedNotionPage]] =
     for {
-      database <- NotionApi(_.retrieveDatabase())
+      database <- NotionApi(_.retrieveDatabase)
       pageProperties = database.pageProperties.filter(shouldBeChecked)
       augmentedPages <- NotionApi(_.retrieveAllPages(pageProperties))
       (pendingPages, notValidPages)       = validateAndSeparatePages(augmentedPages)
@@ -404,7 +406,7 @@ object Main extends ZIOAppDefault {
 
   def postPage(page: RefinedNotionPage): ZIO[NotionApi, Throwable, Unit] =
     for {
-      _ <- ZIO.collectAllPar(List())
+      _ <- ZIO.collectAllPar(List()) // TODO : transform page into posts
       _ <- NotionApi(_.updatePage(updateStatus(page, Posted)))
     } yield ()
 
