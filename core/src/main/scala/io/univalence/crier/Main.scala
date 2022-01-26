@@ -1,7 +1,5 @@
 package io.univalence.crier
 
-import eu.timepit.refined.api.Refined
-import eu.timepit.refined.collection.NonEmpty
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.auto._
 import io.circe.generic.extras.{Configuration => CirceConfiguration, ConfiguredJsonCodec, JsonKey}
@@ -15,16 +13,15 @@ import io.univalence.crier.Main.PostStatus.{NotValid, Pending, Posted}
 import zio._
 import zio.config._
 import zio.config.magnolia.DeriveConfigDescriptor.descriptor
-import zio.config.refined._
 
 import java.time.{DayOfWeek, LocalDate, ZonedDateTime}
 
 object Main extends ZIOAppDefault {
 
   case class Configuration(
-      notionBearer:        Refined[String, NonEmpty],
-      databaseId:          Refined[String, NonEmpty],
-      linkedinAccessToken: Refined[String, NonEmpty]
+      notionBearer:        String,
+      databaseId:          String,
+      linkedinAccessToken: String
   )
 
   val configurationLayer: Layer[ReadError[String], Configuration] =
@@ -220,7 +217,7 @@ object Main extends ZIOAppDefault {
       }
 
     final def updateAllPages(pages: List[RefinedNotionPage]): ZIO[NotionApi, Throwable, Unit] =
-      ZIO.foreach(pages)(updatePage).as(Unit)
+      ZIO.foreach(pages)(updatePage).as(())
   }
 
   object NotionApi extends Accessible[NotionApi]

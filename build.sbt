@@ -37,7 +37,6 @@ lazy val core =
         "dev.zio"                       %% "zio"                           % libVersion.zio,
         "dev.zio"                       %% "zio-config"                    % libVersion.zioConfig,
         "dev.zio"                       %% "zio-config-magnolia"           % libVersion.zioConfig,
-        "dev.zio"                       %% "zio-config-refined"            % libVersion.zioConfig,
         "com.softwaremill.sttp.client3" %% "core"                          % libVersion.sttp,
         "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % libVersion.sttp,
         "com.softwaremill.sttp.client3" %% "circe"                         % libVersion.sttp,
