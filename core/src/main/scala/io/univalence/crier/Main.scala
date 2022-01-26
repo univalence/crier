@@ -19,15 +19,17 @@ import java.time.{DayOfWeek, LocalDate, ZonedDateTime}
 object Main extends ZIOAppDefault {
 
   case class Configuration(
-      notionBearer: Refined[String, NonEmpty],
-      databaseId:   Refined[String, NonEmpty]
+      notionBearer:        Refined[String, NonEmpty],
+      databaseId:          Refined[String, NonEmpty],
+      linkedinAccessToken: Refined[String, NonEmpty]
   )
 
   val configurationLayer: Layer[ReadError[String], Configuration] =
     ZConfig.fromMap(
       Map(
         "notionBearer" -> "secret_WPftuer9iBgPPWaqTMyuJNSd437eAiqvRCY1tjLRr1Z",
-        "databaseId"   -> "3868f708ae46461fbfcf72d34c9536f9"
+        "databaseId"   -> "3868f708ae46461fbfcf72d34c9536f9",
+        "linkedinAccessToken" -> "AQU6o9J9giFL1O_SvgT4YJ1O_yzb86la-R3yOMcnzG_dwdM-FvkRj2xgE_YU8gRIsv0l2b1WCnWUzsMNE0kcYceTqPb-AQnVOPEid_s-GPjAp1qiOB4a82_QMJauMlmC_4L0Hh-9Y7KSIsdP2paOduE9oHtok3_My6PNnGq1cA8cpv2uvxzHUPdXAs1Dw1rORSGmaRzyPbsJXL3k9y43w2LXLeLj8tUHqa30Im4WYQjgfjvagfms5VaX5A_k8NAXDtIJpEP3cmiRv7icIVB9BW6sPX-Nl2qmaBH5STcFsc2yt9r9AsPnjk_298EOXXVCzxp0XNkhR3KfJU2Z6aAchx7Tq8I82A"
       ),
       descriptor[Configuration]
     )
@@ -388,9 +390,7 @@ object Main extends ZIOAppDefault {
     })
   }
 
-  /** @return */
-
-  def validateDatabasePages: ZIO[Clock with Console with NotionApi, Throwable, Unit] =
+  def validateDatabasePages: ZIO[Clock with Console with NotionApi, Throwable, List[RefinedNotionPage]] =
     for {
       database <- NotionApi(_.retrieveDatabase())
       pageProperties = database.pageProperties.filter(shouldBeChecked)
@@ -400,10 +400,32 @@ object Main extends ZIOAppDefault {
       _                               <- NotionApi(_.updateAllPages(notValidPagesWithoutPublicationDate))
       pendingPagesWithPublicationDate <- attributePublicationDateToPages(pendingPages)
       _                               <- NotionApi(_.updateAllPages(pendingPagesWithPublicationDate))
+    } yield pendingPagesWithPublicationDate
+
+  def postPage(page: RefinedNotionPage): ZIO[NotionApi, Throwable, Unit] =
+    for {
+      _ <- ZIO.collectAllPar(List())
+      _ <- NotionApi(_.updatePage(updateStatus(page, Posted)))
     } yield ()
 
-  def program: ZIO[Clock with Console with NotionApi, Throwable, Unit] = validateDatabasePages
+  def program: ZIO[Clock with Console with NotionApi, Throwable, Unit] =
+    for {
+      pendingPages <- validateDatabasePages
+      todayPage = pendingPages.headOption
+      _ <-
+        todayPage match {
+          case Some(page) => postPage(page)
+          case None       => Console.printLine("No post to share today :(")
+        }
+    } yield ()
 
   override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
-    program.provide(Clock.live, Console.live, configurationLayer, sttpLayer, NotionApiLive.layer)
+    program
+      .provide(
+        Clock.live,
+        Console.live,
+        configurationLayer,
+        sttpLayer,
+        NotionApiLive.layer
+      )
 }
