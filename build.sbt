@@ -1,6 +1,7 @@
 // Scala configuration
-ThisBuild / crossScalaVersions := Seq("2.13.8")
-ThisBuild / scalaVersion       := crossScalaVersions.value.head
+ThisBuild / crossScalaVersions         := Seq("2.13.8")
+ThisBuild / scalaVersion               := crossScalaVersions.value.head
+ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
 // Scalafix configuration
 ThisBuild / semanticdbEnabled := true

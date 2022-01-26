@@ -2,9 +2,9 @@ name: Univalence Continuous Integration
 
 on:
   push:
-    branches: ['*']
+    branches: [ '*' ]
   pull_request:
-    branches: ['*']
+    branches: [ '*' ]
 
 jobs:
   build:
@@ -15,9 +15,3 @@ jobs:
         run: sbt scalafmtCheck
       - name: Run linting
         run: sbt "scalafix --check"
-      - name: Run tests
-        run: sbt "project core" clean coverage test
-      - name: Generate coverage report
-        run: sbt coverageReport
-      - name: Publish coverage to codecov
-        uses: codecov/codecov-action@v2
