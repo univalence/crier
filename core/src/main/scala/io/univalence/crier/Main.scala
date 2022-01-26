@@ -18,7 +18,7 @@ import java.time.{DayOfWeek, LocalDate, ZonedDateTime}
 
 object Main extends ZIOAppDefault {
 
-  case class Configuration(
+  final case class Configuration(
       notionBearer: String,
       databaseId:   String
   )
@@ -96,22 +96,22 @@ object Main extends ZIOAppDefault {
       case v           => Left(s"$v is not a valid status")
     }
 
-  case class NotionSelectFrom[T](name: T)
+  final case class NotionSelectFrom[T](name: T)
 
-  case class NotionSelectProperty[T](select: NotionSelectFrom[T])
+  final case class NotionSelectProperty[T](select: NotionSelectFrom[T])
 
   @annotation.nowarn // https://github.com/circe/circe/issues/1411
   @ConfiguredJsonCodec
-  case class NotionMultiSelectProperty[T](@JsonKey("multi_select") selects: List[NotionSelectFrom[T]])
+  final case class NotionMultiSelectProperty[T](@JsonKey("multi_select") selects: List[NotionSelectFrom[T]])
 
-  case class NotionDate(start: LocalDate)
+  final case class NotionDate(start: LocalDate)
 
-  case class NotionDateProperty(date: NotionDate)
+  final case class NotionDateProperty(date: NotionDate)
 
   implicit val config: CirceConfiguration = CirceConfiguration.default
 
   @ConfiguredJsonCodec
-  case class NotionProperties(
+  final case class NotionProperties(
       @JsonKey("Status")
       status: Option[NotionSelectProperty[PostStatus]],
       @JsonKey("Date de publication")
@@ -123,41 +123,41 @@ object Main extends ZIOAppDefault {
   )
 
   @ConfiguredJsonCodec
-  case class NotionPage(
+  final case class NotionPage(
       id: String,
       @JsonKey("created_time")
       createdTime: ZonedDateTime,
       properties:  NotionProperties
   )
 
-  case class NotionBlock(
+  final case class NotionBlock(
       paragraph: NotionParagraph
   )
 
-  case class NotionParagraph(
+  final case class NotionParagraph(
       text: List[NotionText]
   )
 
   @ConfiguredJsonCodec
-  case class NotionText(
+  final case class NotionText(
       @JsonKey("plain_text")
       plainText: String
   )
 
-  case class NotionBlocks(
+  final case class NotionBlocks(
       results: List[NotionBlock]
   )
 
-  case class NotionPageAugmented(
+  final case class NotionPageAugmented(
       id:          String,
       createdTime: ZonedDateTime,
       properties:  NotionProperties,
       text:        String
   )
 
-  case class NotionDatabase(results: List[NotionPage])
+  final case class NotionDatabase(results: List[NotionPage])
 
-  case class RefinedNotionProperties(
+  final case class RefinedNotionProperties(
       id:              String,
       createdTime:     ZonedDateTime,
       kind:            Option[PostKind],
@@ -178,14 +178,14 @@ object Main extends ZIOAppDefault {
       )
   }
 
-  case class RefinedNotionPage(
+  final case class RefinedNotionPage(
       properties: RefinedNotionProperties,
       content:    List[RefinedNotionBlock]
   )
 
-  case class RefinedNotionDatabase(pageProperties: List[RefinedNotionProperties])
+  final case class RefinedNotionDatabase(pageProperties: List[RefinedNotionProperties])
 
-  case class RefinedNotionBlock(
+  final case class RefinedNotionBlock(
       text: String
   )
 
@@ -221,8 +221,8 @@ object Main extends ZIOAppDefault {
 
   object NotionApi extends Accessible[NotionApi]
 
-  case class NotionApiLive(configuration: Configuration, sttp: SttpClient) extends NotionApi {
-    val url = "https://api.notion.com/v1"
+  final case class NotionApiLive(configuration: Configuration, sttp: SttpClient) extends NotionApi {
+    val url: String = "https://api.notion.com/v1"
 
     val defaultRequest: RequestT[Empty, Either[String, String], Any] =
       basicRequest.auth
@@ -306,7 +306,7 @@ object Main extends ZIOAppDefault {
       }
   }
 
-  case class NotionPageValidator(predicate: RefinedNotionPage => Boolean) {
+  final case class NotionPageValidator(predicate: RefinedNotionPage => Boolean) {
     def and(that: NotionPageValidator): NotionPageValidator =
       NotionPageValidator((page: RefinedNotionPage) => predicate(page) && that.predicate(page))
 

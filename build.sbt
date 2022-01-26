@@ -45,7 +45,7 @@ lazy val core =
         "io.circe"                      %% "circe-generic-extras"          % libVersion.circe
       ),
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-      scalacOptions += "-Ymacro-annotations"
+      scalacOptions ++= Seq("-Ymacro-annotations")
     )
 
 lazy val benchmark =
