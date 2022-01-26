@@ -314,12 +314,9 @@ object Main extends ZIOAppDefault {
       NotionPageValidator((page: RefinedNotionPage) => predicate(page) || that.predicate(page))
   }
 
-  val sizeValidator: NotionPageValidator = NotionPageValidator(_.content.length < 280)
-  val minimumKeywordsValidator: NotionPageValidator =
-    NotionPageValidator(
-      _.properties.keywords.length >= 2
-    )
-  val mandatoryTypeValidator: NotionPageValidator = NotionPageValidator(_.properties.kind.isDefined)
+  val sizeValidator: NotionPageValidator            = NotionPageValidator(_.content.length < 280)
+  val minimumKeywordsValidator: NotionPageValidator = NotionPageValidator(_.properties.keywords.nonEmpty)
+  val mandatoryTypeValidator: NotionPageValidator   = NotionPageValidator(_.properties.kind.isDefined)
 
   val validatePage: NotionPageValidator = sizeValidator and minimumKeywordsValidator and mandatoryTypeValidator
 
