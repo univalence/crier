@@ -19,17 +19,15 @@ import java.time.{DayOfWeek, LocalDate, ZonedDateTime}
 object Main extends ZIOAppDefault {
 
   case class Configuration(
-      notionBearer:        String,
-      databaseId:          String,
-      linkedinAccessToken: String
+      notionBearer: String,
+      databaseId:   String
   )
 
   val configurationLayer: Layer[ReadError[String], Configuration] =
     ZConfig.fromMap(
       Map(
         "notionBearer" -> "secret_WPftuer9iBgPPWaqTMyuJNSd437eAiqvRCY1tjLRr1Z",
-        "databaseId"   -> "3868f708ae46461fbfcf72d34c9536f9",
-        "linkedinAccessToken" -> "AQU6o9J9giFL1O_SvgT4YJ1O_yzb86la-R3yOMcnzG_dwdM-FvkRj2xgE_YU8gRIsv0l2b1WCnWUzsMNE0kcYceTqPb-AQnVOPEid_s-GPjAp1qiOB4a82_QMJauMlmC_4L0Hh-9Y7KSIsdP2paOduE9oHtok3_My6PNnGq1cA8cpv2uvxzHUPdXAs1Dw1rORSGmaRzyPbsJXL3k9y43w2LXLeLj8tUHqa30Im4WYQjgfjvagfms5VaX5A_k8NAXDtIJpEP3cmiRv7icIVB9BW6sPX-Nl2qmaBH5STcFsc2yt9r9AsPnjk_298EOXXVCzxp0XNkhR3KfJU2Z6aAchx7Tq8I82A"
+        "databaseId"   -> "3868f708ae46461fbfcf72d34c9536f9"
       ),
       descriptor[Configuration]
     )
@@ -65,7 +63,8 @@ object Main extends ZIOAppDefault {
   sealed trait PostKind
 
   object PostKind {
-    case object Tips    extends PostKind
+    case object Tips extends PostKind
+
     case object Library extends PostKind
   }
 
