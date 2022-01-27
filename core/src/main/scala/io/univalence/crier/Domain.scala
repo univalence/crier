@@ -90,6 +90,9 @@ object Domain {
     self =>
     def withStatus(status: PostStatus): Post = self.copy(properties = self.properties.copy(status = Some(status)))
 
+    def withCreatedTime(createdTime: ZonedDateTime): Post =
+      self.copy(properties = self.properties.copy(createdTime = createdTime))
+
     def withPublicationDate(publicationDate: Option[LocalDate]): Post =
       self.copy(properties = self.properties.copy(publicationDate = publicationDate))
 
