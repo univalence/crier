@@ -15,3 +15,5 @@ jobs:
         run: sbt scalafmtCheck
       - name: Run linting
         run: sbt "scalafix --check"
+      - name: Run tests
+        run: sbt "project core" clean coverage test
