@@ -107,20 +107,29 @@ object Domain {
       self.withStatus(status)
     }
 
-    /** Build the post from the post description. */
-    val content: String = {
-      val postContent = self.lines.mkString("\n")
-
+    def addLink(content: String): String =
       self.properties.link match {
-        case None => postContent
+        case None => content
         case Some(link) =>
           val linkHeader = if (link.contains("scastie")) "Exemple qui illustre ce poste:" else "Pour aller plus loin:"
-          s"""$postContent
+          s"""$content
              |
              |$linkHeader
              |- $link""".stripMargin
       }
-    }
+
+    def addKeywords(content: String): String =
+      self.properties.keywords match {
+        case Nil => content
+        case keywords =>
+          val stringiedKeywords = keywords.map(keyword => s"#$keyword").mkString(" ")
+          s"""$content
+             |
+             |$stringiedKeywords""".stripMargin
+      }
+
+    /** Build the post from the post description. */
+    val content: String = addKeywords(addLink(self.lines.mkString("\n")))
 
   }
 

@@ -11,9 +11,15 @@ object Validator {
       NotionPageValidator((page: Post) => predicate(page) || that.predicate(page))
   }
 
-  val sizeValidator: NotionPageValidator            = NotionPageValidator(_.content.length < 280)
-  val minimumKeywordsValidator: NotionPageValidator = NotionPageValidator(_.properties.keywords.nonEmpty)
-  val mandatoryTypeValidator: NotionPageValidator   = NotionPageValidator(_.properties.kind.isDefined)
+  def keywordValidator(p: String => Boolean): NotionPageValidator =
+    NotionPageValidator(_.properties.keywords.map(p).forall(_ == true))
 
-  val validatePage: NotionPageValidator = sizeValidator and minimumKeywordsValidator and mandatoryTypeValidator
+  val contentSizeGreaterThan600: NotionPageValidator = NotionPageValidator(_.content.length < 600)
+  val minimumOneKeyword: NotionPageValidator         = NotionPageValidator(_.properties.keywords.nonEmpty)
+  val hasAType: NotionPageValidator                  = NotionPageValidator(_.properties.kind.isDefined)
+  val keywordsHaveNoSpace: NotionPageValidator       = keywordValidator(!_.contains(" "))
+  val keywordsAreLower: NotionPageValidator          = keywordValidator(_.map(_.isLower).forall(_ == true))
+
+  val validatePage: NotionPageValidator =
+    contentSizeGreaterThan600 and minimumOneKeyword and hasAType and keywordsHaveNoSpace and keywordsAreLower
 }
