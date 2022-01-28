@@ -48,10 +48,13 @@ object Domain {
 
     case object Library extends PostKind
 
+    case object Tool extends PostKind
+
     implicit val decodePostKind: Decoder[PostKind] =
       Decoder[String].emap {
         case "Tips"    => Right(PostKind.Tips)
         case "Library" => Right(PostKind.Library)
+        case "Tool"    => Right(PostKind.Tool)
         case v         => Left(s"$v is not a valid post")
       }
 
@@ -59,6 +62,7 @@ object Domain {
       Encoder[String].contramap {
         case Tips    => "Tips"
         case Library => "Library"
+        case Tool    => "Tool"
       }
   }
 
