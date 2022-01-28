@@ -1,31 +1,15 @@
 package io.univalence.crier
 
-import io.univalence.crier.Domain.{Post, PostKind, PostProperties, PostStatus}
+import io.univalence.crier.Domain.{Post, PostStatus}
+import io.univalence.crier.Fixtures._
 import io.univalence.crier.Main.{assignPublicationDates, findTodayPost, partitionPosts, sortPosts}
 
 import zio.test._
 import zio.test.Assertion._
 
-import java.time.{LocalDate, ZonedDateTime, ZoneId}
+import java.time.LocalDate
 
 object MainTest extends DefaultRunnableSpec {
-  val timeZone: ZoneId             = ZoneId.of("UTC")
-  val zonedDateTime: ZonedDateTime = ZonedDateTime.of(2021, 10, 1, 0, 0, 0, 0, timeZone)
-
-  val fakePost: Post =
-    Post(
-      properties =
-        PostProperties(
-          id              = "id",
-          createdTime     = zonedDateTime,
-          kind            = Some(PostKind.Tips),
-          status          = Some(PostStatus.NotValid),
-          keywords        = List(),
-          publicationDate = None,
-          link            = None
-        ),
-      content = List()
-    )
 
   def spec: Spec[Annotations with Live with TestClock, TestFailure[Any], TestSuccess] =
     sortPostsSpec + partitionPostsSpec + assignPublicationDatesSpec + findTodayPostSpec

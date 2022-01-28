@@ -6,7 +6,7 @@ import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 import sttp.client3.circe._
 
-import io.univalence.crier.Domain.{Post, PostKind, PostLine, PostProperties, PostStatus, PropetiesDatabase}
+import io.univalence.crier.Domain.{Post, PostKind, PostProperties, PostStatus, PropertiesDatabase}
 import io.univalence.crier.Domain.PostStatus._
 import io.univalence.crier.Main.Configuration
 
@@ -83,17 +83,17 @@ object Notion {
   final case class NotionDatabase(results: List[NotionPage])
 
   trait NotionApi {
-    def retrieveDatabase: Task[PropetiesDatabase]
+    def retrieveDatabase: Task[PropertiesDatabase]
 
-    def retrievePostLines(postId: String): Task[List[PostLine]]
+    def retrievePostLines(postId: String): Task[List[String]]
 
     def updatePost(page: Post): Task[Unit]
 
     final def retrievePosts(postProperties: List[PostProperties]): ZIO[NotionApi, Throwable, List[Post]] =
       ZIO.foreach(postProperties) { properties =>
         for {
-          blocks <- retrievePostLines(properties.id)
-        } yield Post(properties, blocks)
+          lines <- retrievePostLines(properties.id)
+        } yield Post(properties, lines)
       }
 
     final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreach(posts)(updatePost).as(())
@@ -109,7 +109,7 @@ object Notion {
         .bearer(configuration.notionBearer)
         .header("Notion-Version", "2021-05-13")
 
-    override def retrieveDatabase: Task[PropetiesDatabase] = {
+    override def retrieveDatabase: Task[PropertiesDatabase] = {
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -117,10 +117,10 @@ object Notion {
           .post(uri"$url/databases/${configuration.databaseId}/query")
           .response(asJson[NotionDatabase])
 
-      Api.succeedOrDieWithLog(sttp.send(request)).map(PropetiesDatabase.fromNotionDatabase)
+      Api.succeedOrDieWithLog(sttp.send(request)).map(PropertiesDatabase.fromNotionDatabase)
     }
 
-    override def retrievePostLines(postId: String): Task[List[PostLine]] = {
+    override def retrievePostLines(postId: String): Task[List[String]] = {
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -128,7 +128,7 @@ object Notion {
           .get(uri"$url/blocks/$postId/children?page_size=100")
           .response(asJson[NotionBlocks])
 
-      Api.succeedOrDieWithLog(sttp.send(request)).map(_.results.map(PostLine.fromNotionBlock))
+      Api.succeedOrDieWithLog(sttp.send(request)).map(_.results.flatMap(_.paragraph.text.map(_.plainText)))
     }
 
     override def updatePost(page: Post): Task[Unit] = {

@@ -87,7 +87,7 @@ object Domain {
 
   final case class Post(
       properties: PostProperties,
-      content:    List[PostLine]
+      lines:      List[String]
   ) {
     self =>
     def withStatus(status: PostStatus): Post = self.copy(properties = self.properties.copy(status = Some(status)))
@@ -103,21 +103,31 @@ object Domain {
       self.withStatus(status)
     }
 
+    /** Build the post from the post description. */
+    val content: String = {
+      val postContent = self.lines.mkString("\n")
+
+      self.properties.link match {
+        case None => postContent
+        case Some(link) =>
+          val linkHeader = if (link.contains("scastie")) "Exemple qui illustre ce poste:" else "Pour aller plus loin:"
+          s"""$postContent
+             |
+             |$linkHeader
+             |- $link""".stripMargin
+      }
+    }
+
   }
 
-  final case class PropetiesDatabase(listOfProperties: List[PostProperties])
-
-  final case class PostLine(
-      text: String
-  )
+  final case class PropertiesDatabase(listOfProperties: List[PostProperties])
 
   object PostLine {
-    def fromNotionBlock(block: NotionBlock): PostLine =
-      PostLine(text = block.paragraph.text.map(_.plainText).mkString("\n"))
+    def fromNotionBlock(block: NotionBlock): List[String] = block.paragraph.text.map(_.plainText)
   }
 
-  object PropetiesDatabase {
-    def fromNotionDatabase(database: NotionDatabase): PropetiesDatabase =
-      PropetiesDatabase(listOfProperties = database.results.map(PostProperties.fromNotionPage))
+  object PropertiesDatabase {
+    def fromNotionDatabase(database: NotionDatabase): PropertiesDatabase =
+      PropertiesDatabase(listOfProperties = database.results.map(PostProperties.fromNotionPage))
   }
 }
