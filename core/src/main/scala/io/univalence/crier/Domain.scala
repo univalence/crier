@@ -68,7 +68,8 @@ object Domain {
       kind:            Option[PostKind],
       status:          Option[PostStatus],
       publicationDate: Option[LocalDate],
-      keywords:        List[String]
+      keywords:        List[String],
+      link:            Option[String]
   )
 
   object PostProperties {
@@ -79,7 +80,8 @@ object Domain {
         status          = page.properties.status.map(_.select.name),
         publicationDate = page.properties.publicationDate.map(_.date.start),
         keywords        = page.properties.keywords.map(_.selects.map(_.name)).getOrElse(Nil),
-        kind            = page.properties.kind.map(_.select.name)
+        kind            = page.properties.kind.map(_.select.name),
+        link            = page.properties.link.flatMap(_.richText.headOption.map(_.plainText))
       )
   }
 

@@ -28,6 +28,9 @@ object Notion {
 
   final case class NotionDateProperty(date: NotionDate)
 
+  @ConfiguredJsonCodec
+  final case class NotionRichTextProperty(@JsonKey("rich_text") richText: List[NotionText])
+
   implicit val config: CirceConfiguration = CirceConfiguration.default
 
   @ConfiguredJsonCodec
@@ -39,7 +42,9 @@ object Notion {
       @JsonKey("Mots clés")
       keywords: Option[NotionMultiSelectProperty[String]],
       @JsonKey("Type")
-      kind: Option[NotionSelectProperty[PostKind]]
+      kind: Option[NotionSelectProperty[PostKind]],
+      @JsonKey("Link")
+      link: Option[NotionRichTextProperty]
   )
 
   @ConfiguredJsonCodec

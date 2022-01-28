@@ -21,7 +21,8 @@ object MainTest extends DefaultRunnableSpec {
           kind            = Some(PostKind.Tips),
           status          = Some(PostStatus.NotValid),
           keywords        = List(),
-          publicationDate = None
+          publicationDate = None,
+          link            = None
         ),
       content = List()
     )
