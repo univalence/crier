@@ -13,6 +13,7 @@ object Fixtures {
       properties =
         PostProperties(
           id              = "id",
+          subject         = None,
           createdTime     = zonedDateTime,
           kind            = Some(PostKind.Tips),
           status          = Some(PostStatus.NotValid),

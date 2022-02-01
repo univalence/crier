@@ -4,6 +4,7 @@ import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
 
 import io.univalence.crier.Domain.{Post, PostProperties}
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending, Posted}
+import io.univalence.crier.Linkedin.{LinkedinApi, LinkedinApiLive}
 import io.univalence.crier.Notion.{NotionApi, NotionApiLive}
 
 import zio._
@@ -14,18 +15,21 @@ import java.time.{DayOfWeek, LocalDate}
 
 object Main extends ZIOAppDefault {
   final case class Configuration(
-      notionBearer: String,
-      databaseId:   String
+      notion:   NotionConfiguration,
+      linkedin: LinkedinConfiguration
   )
 
-  val configurationLayer: Layer[ReadError[String], Configuration] =
-    ZConfig.fromMap(
-      Map(
-        "notionBearer" -> "secret_WPftuer9iBgPPWaqTMyuJNSd437eAiqvRCY1tjLRr1Z",
-        "databaseId"   -> "3868f708ae46461fbfcf72d34c9536f9"
-      ),
-      descriptor[Configuration]
-    )
+  final case class LinkedinConfiguration(
+      bearer: String
+  )
+
+  final case class NotionConfiguration(
+      bearer:   String,
+      database: String
+  )
+
+  val configurationLayer: ZLayer[System, ReadError[String], Configuration] =
+    ZConfig.fromSystemEnv(descriptor[Configuration].mapKey(_.toUpperCase), keyDelimiter = Some('_'))
 
   val sttpLayer: Layer[Throwable, SttpClient] = AsyncHttpClientZioBackend.layer()
 
@@ -93,13 +97,14 @@ object Main extends ZIOAppDefault {
       _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
     } yield pendingPostsWithPublicationDate
 
-  def postPage(post: Post): ZIO[NotionApi, Throwable, Unit] =
+  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi, Throwable, Unit] =
     for {
-      _ <- ZIO.collectAllPar(List()) // TODO : send post via Linkedin / Twitter
+      _ <- Console.printLine(s"Posting the following content:\n${post.content}")
+      _ <- LinkedinApi(_.writePost(post))
       _ <- NotionApi(_.updatePost(post.withStatus(Posted)))
     } yield ()
 
-  def program: ZIO[Clock with Console with NotionApi, Throwable, Unit] =
+  def program: ZIO[Clock with Console with NotionApi with LinkedinApi, Throwable, Unit] =
     for {
       pendingPages <- processNotionDatabase
       todayPage    <- findTodayPost(pendingPages)
@@ -113,10 +118,12 @@ object Main extends ZIOAppDefault {
   override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
     program
       .provide(
+        System.live,
         Clock.live,
         Console.live,
         configurationLayer,
         sttpLayer,
-        NotionApiLive.layer
+        NotionApiLive.layer,
+        LinkedinApiLive.layer
       )
 }

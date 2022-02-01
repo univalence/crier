@@ -31,10 +31,14 @@ object Notion {
   @ConfiguredJsonCodec
   final case class NotionRichTextProperty(@JsonKey("rich_text") richText: List[NotionText])
 
+  final case class NotionTitleProperty(title: List[NotionText])
+
   implicit val config: CirceConfiguration = CirceConfiguration.default
 
   @ConfiguredJsonCodec
   final case class NotionProperties(
+      @JsonKey("Name")
+      name: Option[NotionTitleProperty],
       @JsonKey("Status")
       status: Option[NotionSelectProperty[PostStatus]],
       @JsonKey("Date de publication")
@@ -96,7 +100,7 @@ object Notion {
         } yield Post(properties, lines)
       }
 
-    final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreach(posts)(updatePost).as(())
+    final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreach(posts)(updatePost).unit
   }
 
   object NotionApi extends Accessible[NotionApi]
@@ -106,7 +110,7 @@ object Notion {
 
     val defaultRequest: RequestT[Empty, Either[String, String], Any] =
       basicRequest.auth
-        .bearer(configuration.notionBearer)
+        .bearer(configuration.notion.bearer)
         .header("Notion-Version", "2021-05-13")
 
     override def retrieveDatabase: Task[PropertiesDatabase] = {
@@ -114,10 +118,10 @@ object Notion {
         defaultRequest
           .header("Content-Type", "application/json")
           .body("{}")
-          .post(uri"$url/databases/${configuration.databaseId}/query")
+          .post(uri"$url/databases/${configuration.notion.database}/query")
           .response(asJson[NotionDatabase])
 
-      Api.succeedOrDieWithLog(sttp.send(request)).map(PropertiesDatabase.fromNotionDatabase)
+      Api.succeedOrDie(sttp.send(request)).map(PropertiesDatabase.fromNotionDatabase)
     }
 
     override def retrievePostLines(postId: String): Task[List[String]] = {
@@ -128,7 +132,12 @@ object Notion {
           .get(uri"$url/blocks/$postId/children?page_size=100")
           .response(asJson[NotionBlocks])
 
-      Api.succeedOrDieWithLog(sttp.send(request)).map(_.results.flatMap(_.paragraph.text.map(_.plainText)))
+      val response = Api.succeedOrDie(sttp.send(request))
+
+      response.map(_.results.flatMap(_.paragraph.text match {
+        case Nil => List("")
+        case l   => l.map(_.plainText)
+      }))
     }
 
     override def updatePost(page: Post): Task[Unit] = {
@@ -171,8 +180,7 @@ object Notion {
           )
           .patch(uri"$url/pages/${page.properties.id}")
 
-      // TODO: Much better error handling
-      sttp.send(request).flatMap(r => ZIO.fromEither(r.body)).fold(e => throw new Exception(e.toString), _ => ())
+      Api.succeedOrDieWithoutValue(sttp.send(request))
     }
   }
 

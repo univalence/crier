@@ -69,6 +69,7 @@ object Domain {
   final case class PostProperties(
       id:              String,
       createdTime:     ZonedDateTime,
+      subject:         Option[String],
       kind:            Option[PostKind],
       status:          Option[PostStatus],
       publicationDate: Option[LocalDate],
@@ -81,6 +82,7 @@ object Domain {
       PostProperties(
         id              = page.id,
         createdTime     = page.createdTime,
+        subject         = page.properties.name.flatMap(_.title.headOption.map(_.plainText)),
         status          = page.properties.status.map(_.select.name),
         publicationDate = page.properties.publicationDate.map(_.date.start),
         keywords        = page.properties.keywords.map(_.selects.map(_.name)).getOrElse(Nil),
@@ -128,8 +130,12 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
+    val tips: String = self.lines.mkString("\n")
+
     /** Build the post from the post description. */
-    val content: String = addKeywords(addLink(self.lines.mkString("\n")))
+    val content: String = addKeywords(addLink(tips)).stripLineEnd
+
+    val escapedContent: String = content.replace("\n", "\\n")
 
   }
 

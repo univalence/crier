@@ -14,6 +14,8 @@ object Validator {
   def keywordValidator(p: String => Boolean): NotionPageValidator =
     NotionPageValidator(_.properties.keywords.map(p).forall(_ == true))
 
+  val subjectDefined: NotionPageValidator            = NotionPageValidator(_.properties.subject.isDefined)
+  val tipsNonEmpty: NotionPageValidator              = NotionPageValidator(_.tips.nonEmpty)
   val contentSizeGreaterThan600: NotionPageValidator = NotionPageValidator(_.content.length < 600)
   val minimumOneKeyword: NotionPageValidator         = NotionPageValidator(_.properties.keywords.nonEmpty)
   val hasAType: NotionPageValidator                  = NotionPageValidator(_.properties.kind.isDefined)
@@ -21,5 +23,5 @@ object Validator {
   val keywordsAreLower: NotionPageValidator          = keywordValidator(_.map(_.isLower).forall(_ == true))
 
   val validatePage: NotionPageValidator =
-    contentSizeGreaterThan600 and minimumOneKeyword and hasAType and keywordsHaveNoSpace and keywordsAreLower
+    subjectDefined and tipsNonEmpty and contentSizeGreaterThan600 and minimumOneKeyword and hasAType and keywordsHaveNoSpace and keywordsAreLower
 }
