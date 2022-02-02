@@ -144,7 +144,7 @@ object Notion {
       val stringifiedPublicationDateJson =
         page.properties.publicationDate match {
           case Some(date) =>
-            s"""
+            s""",
                |"Date de publication": {
                |   "date": {
                |       "start": "$date"
@@ -152,11 +152,33 @@ object Notion {
                |}
                |""".stripMargin
           case None =>
-            """
+            """,
               |"Date de publication": {
               |   "date": null
               |}
               |""".stripMargin
+        }
+      val stringiedErrors =
+        page.errors match {
+          case Nil =>
+            """,
+              |"Erreurs": {
+              |   "rich_text": []
+              |}
+              |""".stripMargin
+          case errors =>
+            s""",
+               |"Erreurs": {
+               |   "rich_text": [
+               |     {
+               |        "type": "text",
+               |        "text": {
+               |          "content": "${errors.map(e => s"- $e").mkString("\\n")}"
+               |        }
+               |      }
+               |   ]
+               |}
+               |""".stripMargin
         }
 
       val stringifiedStatus = PostStatus.toNotion(page.properties.status.getOrElse(NotValid))
@@ -172,8 +194,9 @@ object Notion {
                |            "select": {
                |                "name": "$stringifiedStatus"
                |            }
-               |        },
+               |        }
                |        $stringifiedPublicationDateJson
+               |        $stringiedErrors
                |    }
                |}
                |""".stripMargin

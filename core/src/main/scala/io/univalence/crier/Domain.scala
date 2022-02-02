@@ -93,10 +93,13 @@ object Domain {
 
   final case class Post(
       properties: PostProperties,
-      lines:      List[String]
+      lines:      List[String],
+      errors:     List[String] = Nil
   ) {
     self =>
     def withStatus(status: PostStatus): Post = self.copy(properties = self.properties.copy(status = Some(status)))
+
+    def withErrors(errors: List[String]): Post = self.copy(errors = errors)
 
     def withCreatedTime(createdTime: ZonedDateTime): Post =
       self.copy(properties = self.properties.copy(createdTime = createdTime))
@@ -105,8 +108,12 @@ object Domain {
       self.copy(properties = self.properties.copy(publicationDate = publicationDate))
 
     def validate: Post = {
-      val status = if (validatePage.predicate(self)) Pending else NotValid
-      self.withStatus(status)
+      val errors = validatePage.predicate(self)
+      if (errors.isEmpty) {
+        self.withStatus(Pending)
+      } else {
+        self.withStatus(NotValid).withErrors(errors)
+      }
     }
 
     def addLink(content: String): String =

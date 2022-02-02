@@ -3,24 +3,54 @@ package io.univalence.crier
 import io.univalence.crier.Domain.Post
 
 object Validator {
-  final case class NotionPageValidator(predicate: Post => Boolean) {
+  final case class NotionPageValidator(predicate: Post => List[String]) {
     def and(that: NotionPageValidator): NotionPageValidator =
-      NotionPageValidator((page: Post) => predicate(page) && that.predicate(page))
-
-    def or(that: NotionPageValidator): NotionPageValidator =
-      NotionPageValidator((page: Post) => predicate(page) || that.predicate(page))
+      new NotionPageValidator((page: Post) => predicate(page) ++ that.predicate(page))
   }
 
-  def keywordValidator(p: String => Boolean): NotionPageValidator =
-    NotionPageValidator(_.properties.keywords.map(p).forall(_ == true))
+  object NotionPageValidator {
+    def build(predicate: Post => Boolean, error: String): NotionPageValidator =
+      NotionPageValidator(post => if (predicate(post)) List[String]() else List(error))
+  }
 
-  val subjectDefined: NotionPageValidator            = NotionPageValidator(_.properties.subject.isDefined)
-  val tipsNonEmpty: NotionPageValidator              = NotionPageValidator(_.tips.nonEmpty)
-  val contentSizeGreaterThan600: NotionPageValidator = NotionPageValidator(_.content.length < 600)
-  val minimumOneKeyword: NotionPageValidator         = NotionPageValidator(_.properties.keywords.nonEmpty)
-  val hasAType: NotionPageValidator                  = NotionPageValidator(_.properties.kind.isDefined)
-  val keywordsHaveNoSpace: NotionPageValidator       = keywordValidator(!_.contains(" "))
-  val keywordsAreLower: NotionPageValidator          = keywordValidator(_.map(_.isLower).forall(_ == true))
+  def keywordValidator(p: String => Boolean, error: String): NotionPageValidator =
+    NotionPageValidator.build(post => post.properties.keywords.map(p).forall(_ == true), error)
+
+  val subjectDefined: NotionPageValidator =
+    NotionPageValidator.build(
+      _.properties.subject.isDefined,
+      "Un post doit avoir un titre"
+    )
+  val tipsNonEmpty: NotionPageValidator =
+    NotionPageValidator.build(
+      _.tips.nonEmpty,
+      "Un post ne peut pas être vide"
+    )
+  val contentSizeGreaterThan600: NotionPageValidator =
+    NotionPageValidator.build(
+      _.content.length < 600,
+      "Un post ne peut pas faire plus de 600 charactères (lien et mots clés compris)"
+    )
+  val minimumOneKeyword: NotionPageValidator =
+    NotionPageValidator.build(
+      _.properties.keywords.nonEmpty,
+      "Un post doit avoir au moins un mot clé"
+    )
+  val hasAType: NotionPageValidator =
+    NotionPageValidator.build(
+      _.properties.kind.isDefined,
+      "Un post doit avoir un type définit"
+    )
+  val keywordsHaveNoSpace: NotionPageValidator =
+    keywordValidator(
+      !_.contains(" "),
+      "Les mots clés ne doivent pas avoir d'espaces"
+    )
+  val keywordsAreLower: NotionPageValidator =
+    keywordValidator(
+      _.map(_.isLower).forall(_ == true),
+      "Les mots clés doivent être en minuscule"
+    )
 
   val validatePage: NotionPageValidator =
     subjectDefined and tipsNonEmpty and contentSizeGreaterThan600 and minimumOneKeyword and hasAType and keywordsHaveNoSpace and keywordsAreLower
