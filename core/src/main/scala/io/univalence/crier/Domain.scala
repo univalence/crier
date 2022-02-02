@@ -137,7 +137,7 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
-    val tips: String = self.lines.mkString("\n")
+    val tips: String = self.lines.mkString("\n").stripLineEnd
 
     /** Build the post from the post description. */
     val content: String = addKeywords(addLink(tips)).stripLineEnd
