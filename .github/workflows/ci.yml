@@ -16,4 +16,4 @@ jobs:
       - name: Run linting
         run: sbt "scalafix --check"
       - name: Run tests
-        run: sbt "project core" clean coverage test
+        run: sbt "project crier" clean coverage test
