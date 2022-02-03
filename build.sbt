@@ -29,9 +29,11 @@ lazy val libVersion =
   }
 
 // -- Main project settings
-lazy val core =
+lazy val crier =
   (project in file("core"))
+    .enablePlugins(JavaAppPackaging)
     .settings(
+      Compile / mainClass := Some("io.univalence.crier.Main"),
       libraryDependencies ++= Seq(
         "dev.zio"                       %% "zio-test"                      % libVersion.zio % Test,
         "dev.zio"                       %% "zio-test-sbt"                  % libVersion.zio % Test,
@@ -51,7 +53,7 @@ lazy val core =
 lazy val benchmark =
   (project in file("benchmark"))
     .enablePlugins(JmhPlugin)
-    .dependsOn(core)
+    .dependsOn(crier)
 
 lazy val metadataSettings =
   Def.settings(
