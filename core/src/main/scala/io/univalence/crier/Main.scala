@@ -103,7 +103,7 @@ object Main extends ZIOAppDefault {
   def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi, Throwable, Unit] =
     for {
       _ <- Console.printLine(s"Posting the following content:\n${post.content}")
-      // _ <- LinkedinApi(_.writePost(post))
+      _ <- LinkedinApi(_.writePost(post))
       _ <- NotionApi(_.updatePost(post.withStatus(Posted)))
     } yield ()
 
