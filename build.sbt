@@ -24,7 +24,7 @@ lazy val libVersion =
   new {
     val zio       = "2.0.0-RC1"
     val zioConfig = "3.0.0-RC1"
-    val sttp      = "3.4.0"
+    val sttp      = "3.4.1"
     val circe     = "0.14.1"
   }
 
@@ -33,6 +33,7 @@ lazy val crier =
   (project in file("core"))
     .enablePlugins(JavaAppPackaging)
     .settings(
+      name                := "Crier",
       Compile / mainClass := Some("io.univalence.crier.Main"),
       libraryDependencies ++= Seq(
         "dev.zio"                       %% "zio-test"                      % libVersion.zio % Test,
