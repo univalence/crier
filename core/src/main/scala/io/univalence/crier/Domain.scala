@@ -3,7 +3,7 @@ package io.univalence.crier
 import io.circe.{Decoder, Encoder}
 
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending}
-import io.univalence.crier.Notion.{NotionBlock, NotionDatabase, NotionPage}
+import io.univalence.crier.Notion.{NotionDatabase, NotionPage}
 import io.univalence.crier.Validator.validatePage
 
 import java.time.{LocalDate, ZonedDateTime}
@@ -147,10 +147,6 @@ object Domain {
   }
 
   final case class PropertiesDatabase(listOfProperties: List[PostProperties])
-
-  object PostLine {
-    def fromNotionBlock(block: NotionBlock): List[String] = block.paragraph.text.map(_.plainText)
-  }
 
   object PropertiesDatabase {
     def fromNotionDatabase(database: NotionDatabase): PropertiesDatabase =
