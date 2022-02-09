@@ -1,7 +1,9 @@
 package io.univalence.crier
 
+import cats.syntax.functor._
+import io.circe._
 import io.circe.generic.auto._
-import io.circe.generic.extras.{Configuration => CirceConfiguration, ConfiguredJsonCodec, JsonKey}
+import io.circe.generic.extras.{Configuration => CirceConfiguration, _}
 import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 import sttp.client3.circe._
@@ -10,7 +12,7 @@ import io.univalence.crier.Domain.{Post, PostKind, PostProperties, PostStatus, P
 import io.univalence.crier.Domain.PostStatus._
 import io.univalence.crier.Main.Configuration
 
-import zio.{Accessible, Task, ZIO, ZLayer}
+import zio._
 import zio.config.getConfig
 
 import java.time.{LocalDate, ZonedDateTime}
@@ -59,8 +61,33 @@ object Notion {
       properties:  NotionProperties
   )
 
-  final case class NotionBlock(
-      paragraph: NotionParagraph
+  implicit val decoderResult: Decoder[NotionBlock] =
+    Decoder[NotionBlockParagraph].widen or Decoder[NotionBlockBulletPoint].widen
+
+  sealed trait NotionBlock {
+    val text: List[NotionText]
+
+    def lines: List[String] =
+      text match {
+        case Nil => List("")
+        case l   => l.map(_.plainText)
+      }
+  }
+
+  final case class NotionBlockParagraph(paragraph: NotionParagraph) extends NotionBlock {
+    override val text: List[NotionText] = paragraph.text
+  }
+
+  @ConfiguredJsonCodec
+  final case class NotionBlockBulletPoint(
+      @JsonKey("bulleted_list_item")
+      bullet: NotionBullet
+  ) extends NotionBlock {
+    override val text: List[NotionText] = bullet.text
+  }
+
+  final case class NotionBullet(
+      text: List[NotionText]
   )
 
   final case class NotionParagraph(
@@ -93,9 +120,11 @@ object Notion {
 
     def updatePost(page: Post): Task[Unit]
 
-    final def retrievePosts(postProperties: List[PostProperties]): ZIO[NotionApi, Throwable, List[Post]] =
+    final def retrievePosts(postProperties: List[PostProperties]): ZIO[Console with NotionApi, Throwable, List[Post]] =
       ZIO.foreach(postProperties) { properties =>
+        val title = properties.subject.getOrElse("none")
         for {
+          _     <- Console.printLine(s"Fetching information for $title post (${properties.id})")
           lines <- retrievePostLines(properties.id)
         } yield Post(properties, lines)
       }
@@ -134,10 +163,7 @@ object Notion {
 
       val response = Api.succeedOrDie(sttp.send(request))
 
-      response.map(_.results.flatMap(_.paragraph.text match {
-        case Nil => List("")
-        case l   => l.map(_.plainText)
-      }))
+      response.map(_.results.flatMap(_.lines))
     }
 
     override def updatePost(page: Post): Task[Unit] = {
