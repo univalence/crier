@@ -28,8 +28,8 @@ object Validator {
     )
   val contentSizeGreaterThan600: NotionPageValidator =
     NotionPageValidator.build(
-      _.content.length < 800,
-      "Un post ne peut pas faire plus de 800 charactères (lien et mots clés compris)"
+      _.content.length < 1500,
+      "Un post ne peut pas faire plus de 1500 charactères (lien et mots clés compris)"
     )
   val minimumOneKeyword: NotionPageValidator =
     NotionPageValidator.build(
