@@ -1,4 +1,4 @@
-package io.univalence.crier
+package io.univalence.crier.api
 
 import cats.syntax.functor._
 import io.circe._
@@ -8,12 +8,12 @@ import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 import sttp.client3.circe._
 
-import io.univalence.crier.Domain.{Post, PostKind, PostProperties, PostStatus, PropertiesDatabase}
-import io.univalence.crier.Domain.PostStatus._
+import io.univalence.crier.Domain._
+import io.univalence.crier.Domain.PostStatus.NotValid
 import io.univalence.crier.Main.Configuration
 
-import zio._
-import zio.config.getConfig
+import zio.{Accessible, Console, Task, ZIO, ZLayer}
+import zio.config._
 
 import java.time.{LocalDate, ZonedDateTime}
 

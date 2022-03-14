@@ -4,8 +4,8 @@ import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
 
 import io.univalence.crier.Domain.{Post, PostProperties}
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending, Posted}
-import io.univalence.crier.Linkedin.{LinkedinApi, LinkedinApiLive}
-import io.univalence.crier.Notion.{NotionApi, NotionApiLive}
+import io.univalence.crier.api.Linkedin.{LinkedinApi, LinkedinApiLive}
+import io.univalence.crier.api.Notion.{NotionApi, NotionApiLive}
 
 import zio._
 import zio.config._

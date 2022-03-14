@@ -3,8 +3,8 @@ package io.univalence.crier
 import io.circe.{Decoder, Encoder}
 
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending}
-import io.univalence.crier.Notion.{NotionDatabase, NotionPage}
 import io.univalence.crier.Validator.validatePage
+import io.univalence.crier.api.Notion.{NotionDatabase, NotionPage}
 
 import java.time.{LocalDate, ZonedDateTime}
 

@@ -1,4 +1,4 @@
-package io.univalence.crier
+package io.univalence.crier.api
 
 import sttp.client3.{Response, ResponseException}
 
