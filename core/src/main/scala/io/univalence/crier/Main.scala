@@ -6,6 +6,7 @@ import io.univalence.crier.Domain.{Post, PostProperties}
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending, Posted}
 import io.univalence.crier.api.Linkedin.{LinkedinApi, LinkedinApiLive}
 import io.univalence.crier.api.Notion.{NotionApi, NotionApiLive}
+import io.univalence.crier.api.Slack.{SlackApi, SlackApiLive}
 
 import zio._
 import zio.config._
@@ -16,7 +17,12 @@ import java.time.{DayOfWeek, LocalDate}
 object Main extends ZIOAppDefault {
   final case class Configuration(
       notion:   NotionConfiguration,
-      linkedin: LinkedinConfiguration
+      linkedin: LinkedinConfiguration,
+      slack:    SlackConfiguration
+  )
+
+  final case class SlackConfiguration(
+      webhook: String
   )
 
   final case class LinkedinConfiguration(
@@ -100,14 +106,15 @@ object Main extends ZIOAppDefault {
       _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
     } yield pendingPostsWithPublicationDate
 
-  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi, Throwable, Unit] =
+  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       _ <- Console.printLine(s"Posting the following content:\n${post.content}")
       _ <- LinkedinApi(_.writePost(post))
       _ <- NotionApi(_.updatePost(post.withStatus(Posted)))
+      _ <- SlackApi(_.sendMessage(post.toSlack))
     } yield ()
 
-  def program: ZIO[Clock with Console with NotionApi with LinkedinApi, Throwable, Unit] =
+  def program: ZIO[Clock with Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       pendingPages <- processNotionDatabase
       todayPage    <- findTodayPost(pendingPages)
@@ -127,6 +134,7 @@ object Main extends ZIOAppDefault {
         configurationLayer,
         sttpLayer,
         NotionApiLive.layer,
-        LinkedinApiLive.layer
+        LinkedinApiLive.layer,
+        SlackApiLive.layer
       )
 }

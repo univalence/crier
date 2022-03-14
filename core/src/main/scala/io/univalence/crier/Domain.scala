@@ -137,6 +137,17 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
+    def toSlack: String =
+      s"""Un nouveau post est disponible sur Linkedin. 🚀
+         |
+         |Le voici ⬇️
+         |
+         |```
+         |$content
+         |```
+         |
+         |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité !""".stripMargin
+
     val tips: String = self.lines.mkString("\n").stripLineEnd
 
     /** Build the post from the post description. */
