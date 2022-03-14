@@ -114,29 +114,32 @@ object Main extends ZIOAppDefault {
       _ <- SlackApi(_.sendMessage(post.toSlack))
     } yield ()
 
+  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =
+    pendingPosts.length match {
+      case x if x < 5 =>
+        val url: String =
+          "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
+        SlackApi(
+          _.sendMessage(
+            s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
+               |
+               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
+          )
+        )
+      case _ => ZIO.unit
+    }
+
   def program: ZIO[Clock with Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
-      pendingPages <- processNotionDatabase
-      todayPage    <- findTodayPost(pendingPages)
+      pendingPosts <- processNotionDatabase
+      todayPage    <- findTodayPost(pendingPosts)
       _ <-
         todayPage match {
           case Some(page) => postPage(page)
           case None       => Console.printLine("No post to share today :(")
         }
-      _ <-
-        pendingPages.length match {
-          case x if x < 5 =>
-            val url: String =
-              "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
-            SlackApi(
-              _.sendMessage(
-                s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
-                   |
-                   |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
-              )
-            )
-          case _ => ZIO.unit
-        }
+      _ <- preventEmptyDatabase(pendingPosts)
+
     } yield ()
 
   override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
