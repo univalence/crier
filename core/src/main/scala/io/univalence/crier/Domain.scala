@@ -3,8 +3,8 @@ package io.univalence.crier
 import io.circe.{Decoder, Encoder}
 
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending}
-import io.univalence.crier.Notion.{NotionDatabase, NotionPage}
 import io.univalence.crier.Validator.validatePage
+import io.univalence.crier.api.Notion.{NotionDatabase, NotionPage}
 
 import java.time.{LocalDate, ZonedDateTime}
 
@@ -136,6 +136,17 @@ object Domain {
              |
              |$stringiedKeywords""".stripMargin
       }
+
+    def toSlack: String =
+      s"""Un nouveau post est disponible sur Linkedin. 🚀
+         |
+         |Le voici ⬇️
+         |
+         |```
+         |$content
+         |```
+         |
+         |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité !""".stripMargin
 
     val tips: String = self.lines.mkString("\n").stripLineEnd
 

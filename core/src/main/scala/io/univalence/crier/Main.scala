@@ -4,8 +4,9 @@ import sttp.client3.asynchttpclient.zio.{AsyncHttpClientZioBackend, SttpClient}
 
 import io.univalence.crier.Domain.{Post, PostProperties}
 import io.univalence.crier.Domain.PostStatus.{NotValid, Pending, Posted}
-import io.univalence.crier.Linkedin.{LinkedinApi, LinkedinApiLive}
-import io.univalence.crier.Notion.{NotionApi, NotionApiLive}
+import io.univalence.crier.api.Linkedin.{LinkedinApi, LinkedinApiLive}
+import io.univalence.crier.api.Notion.{NotionApi, NotionApiLive}
+import io.univalence.crier.api.Slack.{SlackApi, SlackApiLive}
 
 import zio._
 import zio.config._
@@ -16,7 +17,12 @@ import java.time.{DayOfWeek, LocalDate}
 object Main extends ZIOAppDefault {
   final case class Configuration(
       notion:   NotionConfiguration,
-      linkedin: LinkedinConfiguration
+      linkedin: LinkedinConfiguration,
+      slack:    SlackConfiguration
+  )
+
+  final case class SlackConfiguration(
+      webhook: String
   )
 
   final case class LinkedinConfiguration(
@@ -100,22 +106,40 @@ object Main extends ZIOAppDefault {
       _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
     } yield pendingPostsWithPublicationDate
 
-  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi, Throwable, Unit] =
+  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       _ <- Console.printLine(s"Posting the following content:\n${post.content}")
       _ <- LinkedinApi(_.writePost(post))
       _ <- NotionApi(_.updatePost(post.withStatus(Posted)))
+      _ <- SlackApi(_.sendMessage(post.toSlack))
     } yield ()
 
-  def program: ZIO[Clock with Console with NotionApi with LinkedinApi, Throwable, Unit] =
+  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =
+    pendingPosts.length match {
+      case x if x < 5 =>
+        val url: String =
+          "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
+        SlackApi(
+          _.sendMessage(
+            s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
+               |
+               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
+          )
+        )
+      case _ => ZIO.unit
+    }
+
+  def program: ZIO[Clock with Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
-      pendingPages <- processNotionDatabase
-      todayPage    <- findTodayPost(pendingPages)
+      pendingPosts <- processNotionDatabase
+      todayPage    <- findTodayPost(pendingPosts)
       _ <-
         todayPage match {
           case Some(page) => postPage(page)
           case None       => Console.printLine("No post to share today :(")
         }
+      _ <- preventEmptyDatabase(pendingPosts)
+
     } yield ()
 
   override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
@@ -127,6 +151,7 @@ object Main extends ZIOAppDefault {
         configurationLayer,
         sttpLayer,
         NotionApiLive.layer,
-        LinkedinApiLive.layer
+        LinkedinApiLive.layer,
+        SlackApiLive.layer
       )
 }

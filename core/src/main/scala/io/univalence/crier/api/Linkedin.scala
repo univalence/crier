@@ -1,13 +1,13 @@
-package io.univalence.crier
+package io.univalence.crier.api
 
 import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 
-import io.univalence.crier.Domain._
+import io.univalence.crier.Domain.Post
 import io.univalence.crier.Main.Configuration
 
 import zio.{Accessible, Task, ZIO, ZLayer}
-import zio.config.getConfig
+import zio.config._
 
 object Linkedin {
   trait LinkedinApi {
