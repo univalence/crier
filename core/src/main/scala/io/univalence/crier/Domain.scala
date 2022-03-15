@@ -137,7 +137,9 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
-    def toSlack: String =
+    def toSlack(linkedinId: String): String = {
+      val url = s"https://www.linkedin.com/feed/update/urn:li:activity:$linkedinId/"
+
       s"""Un nouveau post est disponible sur Linkedin. 🚀
          |
          |Le voici ⬇️
@@ -146,7 +148,8 @@ object Domain {
          |$content
          |```
          |
-         |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité !""".stripMargin
+         |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité: $url !""".stripMargin
+    }
 
     val tips: String = self.lines.mkString("\n").stripLineEnd
 
