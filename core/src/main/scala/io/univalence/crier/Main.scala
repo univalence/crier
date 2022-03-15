@@ -108,10 +108,10 @@ object Main extends ZIOAppDefault {
 
   def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
-      _ <- Console.printLine(s"Posting the following content:\n${post.content}")
-      _ <- LinkedinApi(_.writePost(post))
-      _ <- NotionApi(_.updatePost(post.withStatus(Posted)))
-      _ <- SlackApi(_.sendMessage(post.toSlack))
+      _                <- Console.printLine(s"Posting the following content:\n${post.content}")
+      linkedinResponse <- LinkedinApi(_.writePost(post))
+      _                <- NotionApi(_.updatePost(post.withStatus(Posted)))
+      _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.id)))
     } yield ()
 
   def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =
@@ -119,6 +119,7 @@ object Main extends ZIOAppDefault {
       case x if x < 5 =>
         val url: String =
           "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
+
         SlackApi(
           _.sendMessage(
             s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
