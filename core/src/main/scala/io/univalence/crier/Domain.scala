@@ -137,8 +137,8 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
-    def toSlack(linkedinId: String): String = {
-      val url = s"https://www.linkedin.com/feed/update/urn:li:activity:$linkedinId/"
+    def toSlack(linkedinActivity: String): String = {
+      val url = s"https://www.linkedin.com/feed/update/$linkedinActivity/"
 
       s"""Un nouveau post est disponible sur Linkedin. 🚀
          |
