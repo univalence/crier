@@ -33,7 +33,7 @@ lazy val crier =
   (project in file("core"))
     .enablePlugins(JavaAppPackaging)
     .settings(
-      name                := "Crier",
+      name                := "core",
       Compile / mainClass := Some("io.univalence.crier.Main"),
       libraryDependencies ++= Seq(
         "dev.zio"                       %% "zio-test"                      % libVersion.zio % Test,
