@@ -111,7 +111,7 @@ object Main extends ZIOAppDefault {
       _                <- Console.printLine(s"Posting the following content:\n${post.content}")
       linkedinResponse <- LinkedinApi(_.writePost(post))
       _                <- NotionApi(_.updatePost(post.withStatus(Posted)))
-      _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.id)))
+      _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.activity)))
     } yield ()
 
   def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =

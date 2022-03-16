@@ -11,7 +11,7 @@ import io.univalence.crier.Main.Configuration
 import zio.{Accessible, Task, ZIO, ZLayer}
 import zio.config._
 object Linkedin {
-  final case class LinkedinResponse(id: String)
+  final case class LinkedinResponse(activity: String)
 
   trait LinkedinApi {
     def writePost(post: Post): Task[LinkedinResponse]
