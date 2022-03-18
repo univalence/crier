@@ -41,6 +41,13 @@ object Validator {
       _.properties.kind.isDefined,
       "Un post doit avoir un type définit"
     )
+
+  val minimumOneAuthor: NotionPageValidator =
+    NotionPageValidator.build(
+      _.properties.authorIds.nonEmpty,
+      "Le post doit au moins avoir un auteur"
+    )
+
   val keywordsHaveNoSpace: NotionPageValidator =
     keywordValidator(
       !_.contains(" "),
@@ -52,6 +59,19 @@ object Validator {
       "Les mots clés doivent être en minuscule"
     )
 
-  val validatePage: NotionPageValidator =
-    subjectDefined and tipsNonEmpty and contentSizeGreaterThan600 and minimumOneKeyword and hasAType and keywordsHaveNoSpace and keywordsAreLower
+  val validatePage: NotionPageValidator = {
+    val predicates =
+      Seq(
+        subjectDefined,
+        tipsNonEmpty,
+        contentSizeGreaterThan600,
+        minimumOneKeyword,
+        hasAType,
+        keywordsHaveNoSpace,
+        keywordsAreLower,
+        minimumOneAuthor
+      )
+
+    predicates.reduce(_ and _)
+  }
 }

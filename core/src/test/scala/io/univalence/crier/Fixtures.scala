@@ -10,9 +10,11 @@ object Fixtures {
 
   val fakePost: Post =
     Post(
+      authors = List("Jon Doe"),
       properties =
         PostProperties(
           id              = "id",
+          authorIds       = List("azerty"),
           subject         = None,
           createdTime     = zonedDateTime,
           kind            = Some(PostKind.Tips),

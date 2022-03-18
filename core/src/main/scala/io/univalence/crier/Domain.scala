@@ -68,6 +68,7 @@ object Domain {
 
   final case class PostProperties(
       id:              String,
+      authorIds:       List[String],
       createdTime:     ZonedDateTime,
       subject:         Option[String],
       kind:            Option[PostKind],
@@ -81,6 +82,7 @@ object Domain {
     def fromNotionPage(page: NotionPage): PostProperties =
       PostProperties(
         id              = page.id,
+        authorIds       = page.properties.authors.map(_.people.map(_.identifier)).getOrElse(Nil),
         createdTime     = page.createdTime,
         subject         = page.properties.name.flatMap(_.title.headOption.map(_.plainText)),
         status          = page.properties.status.map(_.select.name),
@@ -92,6 +94,7 @@ object Domain {
   }
 
   final case class Post(
+      authors:    List[String],
       properties: PostProperties,
       lines:      List[String],
       errors:     List[String] = Nil
@@ -137,6 +140,19 @@ object Domain {
              |$stringiedKeywords""".stripMargin
       }
 
+    def addAuthor(content: String): String =
+      self.authors match {
+        case Nil => content
+        case author :: Nil =>
+          s"""$content
+             |
+             |Ce post a été écrit par l'Univalien $author. 🐇""".stripMargin
+        case _ =>
+          s"""$content
+             |
+             |Ce post a été écrit par les Univaliens ${self.authors.mkString(", ")}. 🐇""".stripMargin
+      }
+
     def toSlack(linkedinActivity: String): String = {
       val url = s"https://www.linkedin.com/feed/update/$linkedinActivity/"
 
@@ -154,7 +170,7 @@ object Domain {
     val tips: String = self.lines.mkString("\n").stripLineEnd
 
     /** Build the post from the post description. */
-    val content: String = addKeywords(addLink(tips)).stripLineEnd
+    val content: String = addAuthor(addKeywords(addLink(tips))).stripLineEnd
 
     val escapedContent: String = content.replace("\n", "\\n")
 
