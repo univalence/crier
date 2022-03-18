@@ -35,12 +35,16 @@ object Notion {
 
   final case class NotionTitleProperty(title: List[NotionText])
 
+  final case class NotionPeopleProperty(people: List[NotionPeople])
+
   implicit val config: CirceConfiguration = CirceConfiguration.default
 
   @ConfiguredJsonCodec
   final case class NotionProperties(
       @JsonKey("Name")
       name: Option[NotionTitleProperty],
+      @JsonKey("Auteur")
+      authors: Option[NotionPeopleProperty],
       @JsonKey("Status")
       status: Option[NotionSelectProperty[PostStatus]],
       @JsonKey("Date de publication")
@@ -100,6 +104,12 @@ object Notion {
       plainText: String
   )
 
+  @ConfiguredJsonCodec
+  final case class NotionPeople(
+      @JsonKey("id")
+      identifier: String
+  )
+
   final case class NotionBlocks(
       results: List[NotionBlock]
   )
@@ -113,6 +123,8 @@ object Notion {
 
   final case class NotionDatabase(results: List[NotionPage])
 
+  final case class NotionUser(name: String)
+
   trait NotionApi {
     def retrieveDatabase: Task[PropertiesDatabase]
 
@@ -120,13 +132,16 @@ object Notion {
 
     def updatePost(page: Post): Task[Unit]
 
+    def retrieveAuthor(authorId: String): Task[String]
+
     final def retrievePosts(postProperties: List[PostProperties]): ZIO[Console with NotionApi, Throwable, List[Post]] =
       ZIO.foreach(postProperties) { properties =>
         val title = properties.subject.getOrElse("none")
         for {
-          _     <- Console.printLine(s"Fetching information for $title post (${properties.id})")
-          lines <- retrievePostLines(properties.id)
-        } yield Post(properties, lines)
+          _       <- Console.printLine(s"Fetching information for $title post (${properties.id})")
+          lines   <- retrievePostLines(properties.id)
+          authors <- ZIO.foreachPar(properties.authorIds)(retrieveAuthor)
+        } yield Post(authors, properties, lines)
       }
 
     final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreach(posts)(updatePost).unit
@@ -164,6 +179,19 @@ object Notion {
       val response = Api.succeedOrDie(sttp.send(request))
 
       response.map(_.results.flatMap(_.lines))
+    }
+
+    override def retrieveAuthor(authorId: String): Task[String] = {
+      val request =
+        defaultRequest
+          .header("Content-Type", "application/json")
+          .body("{}")
+          .get(uri"$url/users/$authorId")
+          .response(asJson[NotionUser])
+
+      val response = Api.succeedOrDie(sttp.send(request))
+
+      response.map(_.name)
     }
 
     override def updatePost(page: Post): Task[Unit] = {

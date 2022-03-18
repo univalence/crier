@@ -13,7 +13,9 @@ object DomainTest extends DefaultRunnableSpec {
       test("Post should build a correct final content") {
         val result =
           """This is my daily post.
-            |With a lot of content!""".stripMargin
+            |With a lot of content!
+            |
+            |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
 
         assert(fakePost.content)(equalTo(result))
       },
@@ -26,7 +28,9 @@ object DomainTest extends DefaultRunnableSpec {
              |With a lot of content!
              |
              |Pour aller plus loin:
-             |- $link""".stripMargin
+             |- $link
+             |
+             |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
 
         assert(fakePostWithLink.content)(equalTo(result))
       },
@@ -39,7 +43,9 @@ object DomainTest extends DefaultRunnableSpec {
              |With a lot of content!
              |
              |Exemple qui illustre ce poste:
-             |- $link""".stripMargin
+             |- $link
+             |
+             |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
 
         assert(fakePostWithLink.content)(equalTo(result))
       }
