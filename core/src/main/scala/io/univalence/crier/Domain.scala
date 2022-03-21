@@ -146,11 +146,11 @@ object Domain {
         case author :: Nil =>
           s"""$content
              |
-             |Ce post a été écrit par l'Univalien $author. 🐇""".stripMargin
+             |Ce post a été écrit par $author. 🐇""".stripMargin
         case _ =>
           s"""$content
              |
-             |Ce post a été écrit par les Univaliens ${self.authors.mkString(", ")}. 🐇""".stripMargin
+             |Ce post a été écrit par ${self.authors.mkString(", ")}. 🐇""".stripMargin
       }
 
     def toSlack(linkedinActivity: String): String = {
@@ -170,7 +170,7 @@ object Domain {
     val tips: String = self.lines.mkString("\n").stripLineEnd
 
     /** Build the post from the post description. */
-    val content: String = addAuthor(addKeywords(addLink(tips))).stripLineEnd
+    val content: String = addKeywords(addAuthor(addLink(tips))).stripLineEnd
 
     val escapedContent: String = content.replace("\n", "\\n")
 

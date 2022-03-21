@@ -15,7 +15,7 @@ object DomainTest extends DefaultRunnableSpec {
           """This is my daily post.
             |With a lot of content!
             |
-            |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
+            |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
         assert(fakePost.content)(equalTo(result))
       },
@@ -30,7 +30,7 @@ object DomainTest extends DefaultRunnableSpec {
              |Pour aller plus loin:
              |- $link
              |
-             |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
+             |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
         assert(fakePostWithLink.content)(equalTo(result))
       },
@@ -45,7 +45,7 @@ object DomainTest extends DefaultRunnableSpec {
              |Exemple qui illustre ce poste:
              |- $link
              |
-             |Ce post a été écrit par l'Univalien Jon Doe. 🐇""".stripMargin
+             |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
         assert(fakePostWithLink.content)(equalTo(result))
       }
