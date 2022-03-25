@@ -48,6 +48,11 @@ object DomainTest extends DefaultRunnableSpec {
              |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
         assert(fakePostWithLink.content)(equalTo(result))
+      },
+      test("Cleaned post should escape quote correctly") {
+        val fakePostWithQuote = fakePost.copy(lines = List("My post contains \\\\\" \""))
+
+        assertTrue(fakePostWithQuote.escapedContent.contains("\\\""))
       }
     )
 }
