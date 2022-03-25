@@ -161,7 +161,7 @@ object Domain {
          |Le voici ⬇️
          |
          |```
-         |$content
+         |$cleanedContent
          |```
          |
          |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité: $url !""".stripMargin
@@ -172,8 +172,14 @@ object Domain {
     /** Build the post from the post description. */
     val content: String = addKeywords(addAuthor(addLink(tips))).stripLineEnd
 
-    val escapedContent: String = content.replace("\n", "\\n")
+    val cleanedContent: String =
+      content
+        .replace("\"", "\\\"")
+        .replace("\\\\\"", "\\\"")
 
+    val escapedContent: String =
+      cleanedContent
+        .replace("\n", "\\n")
   }
 
   final case class PropertiesDatabase(listOfProperties: List[PostProperties])

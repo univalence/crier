@@ -29,7 +29,7 @@ lazy val libVersion =
   }
 
 // -- Main project settings
-lazy val app =
+lazy val core =
   (project in file("core"))
     .enablePlugins(JavaAppPackaging)
     .settings(
@@ -54,7 +54,7 @@ lazy val app =
 lazy val benchmark =
   (project in file("benchmark"))
     .enablePlugins(JmhPlugin)
-    .dependsOn(app)
+    .dependsOn(core)
 
 lazy val metadataSettings =
   Def.settings(
