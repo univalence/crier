@@ -22,9 +22,9 @@ ThisBuild / coverageMinimumBranchPerFile    := 50
 // -- Lib versions
 lazy val libVersion =
   new {
-    val zio       = "2.0.0-RC1"
-    val zioConfig = "3.0.0-RC1"
-    val sttp      = "3.4.1"
+    val zio       = "2.0.0-RC2"
+    val zioConfig = "3.0.0-RC3"
+    val sttp      = "3.5.1"
     val circe     = "0.14.1"
   }
 
@@ -65,7 +65,7 @@ lazy val metadataSettings =
     // -- Project
     name                     := "Crier",
     version                  := "0.1.0",
-    description              := "Take pages from notion and post them on Linkedin and Twitter daily",
+    description              := "Take pages from notion and post them on Linkedin daily",
     startYear                := Some(2022),
     licenses += ("Apache-2.0" → new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
     homepage                 := Some(url("https://github.com/univalence/crier")),

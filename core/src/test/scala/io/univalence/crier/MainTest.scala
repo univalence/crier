@@ -7,7 +7,7 @@ import io.univalence.crier.Main.{assignPublicationDates, findTodayPost, partitio
 import zio.test._
 import zio.test.Assertion._
 
-import java.time.LocalDate
+import java.time.{DayOfWeek, LocalDate}
 
 object MainTest extends DefaultRunnableSpec {
 
@@ -72,21 +72,25 @@ object MainTest extends DefaultRunnableSpec {
           _             <- TestClock.setDateTime(dateTimeReference)
           postsWithDate <- assignPublicationDates(posts)
           dates = postsWithDate.map(_.properties.publicationDate.get)
-        } yield assert(dates)(equalTo(List(dateTimeReference.toLocalDate, dateTimeReference.toLocalDate.plusDays(1))))
+          days  = dates.map(_.getDayOfWeek)
+        } yield assertTrue(days == List(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY))
       },
-      test("assignPublicationDates should ignore saturday and sunday") {
-        val posts: List[Post] = List(fakePost, fakePost)
+      test("assignPublicationDates should ignore thursday, tuesday, saturday and sunday") {
+        val posts: List[Post] = List.fill(20)(fakePost)
 
         val dateTimeReference = zonedDateTime.toOffsetDateTime
+
+        val availableDayOfWeeks = Set(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)
 
         // The 2021/10/1 is a Friday
         for {
           _             <- TestClock.setDateTime(dateTimeReference)
           postsWithDate <- assignPublicationDates(posts)
           dates = postsWithDate.map(_.properties.publicationDate.get)
-        } yield assert(dates)(equalTo(List(dateTimeReference.toLocalDate, dateTimeReference.toLocalDate.plusDays(3))))
+          days  = dates.map(_.getDayOfWeek)
+        } yield assertTrue(days.forall(availableDayOfWeeks(_)))
       },
-      test("assignPublicationDates can be launched on saturday or friday without issues") {
+      test("assignPublicationDates can be launched on saturday without issues") {
         val posts: List[Post] = List(fakePost, fakePost)
 
         val dateTimeReference = zonedDateTime.plusDays(1).toOffsetDateTime
@@ -96,9 +100,8 @@ object MainTest extends DefaultRunnableSpec {
           _             <- TestClock.setDateTime(dateTimeReference)
           postsWithDate <- assignPublicationDates(posts)
           dates = postsWithDate.map(_.properties.publicationDate.get)
-        } yield assert(dates)(
-          equalTo(List(dateTimeReference.toLocalDate.plusDays(2), dateTimeReference.toLocalDate.plusDays(3)))
-        )
+          days  = dates.map(_.getDayOfWeek)
+        } yield assertTrue(days == List(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY))
       }
     )
 

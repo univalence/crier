@@ -72,9 +72,9 @@ object Main extends ZIOAppDefault {
           .scanLeft(Clock.localDateTime.map(_.toLocalDate.minusDays(1)))((previousDate, _) =>
             previousDate.map(date =>
               date.getDayOfWeek match {
-                case DayOfWeek.FRIDAY   => date.plusDays(3)
-                case DayOfWeek.SATURDAY => date.plusDays(2)
-                case _                  => date.plusDays(1)
+                case DayOfWeek.FRIDAY                                            => date.plusDays(3)
+                case DayOfWeek.SATURDAY | DayOfWeek.MONDAY | DayOfWeek.WEDNESDAY => date.plusDays(2)
+                case _                                                           => date.plusDays(1)
               }
             )
           )
