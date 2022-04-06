@@ -135,16 +135,20 @@ object Notion {
     def retrieveAuthor(authorId: String): Task[String]
 
     final def retrievePosts(postProperties: List[PostProperties]): ZIO[Console with NotionApi, Throwable, List[Post]] =
-      ZIO.foreach(postProperties) { properties =>
-        val title = properties.subject.getOrElse("none")
-        for {
-          _       <- Console.printLine(s"Fetching information for $title post (${properties.id})")
-          lines   <- retrievePostLines(properties.id)
-          authors <- ZIO.foreachPar(properties.authorIds)(retrieveAuthor)
-        } yield Post(authors, properties, lines)
-      }
+      for {
+        memoizedRetrieveAuthor <- ZIO.memoize(retrieveAuthor)
+        posts <-
+          ZIO.foreachPar(postProperties) { properties =>
+            val title = properties.subject.getOrElse("unknown")
+            for {
+              _       <- Console.printLine(s"Fetching information for $title post (${properties.id})")
+              lines   <- retrievePostLines(properties.id)
+              authors <- ZIO.foreachPar(properties.authorIds)(memoizedRetrieveAuthor)
+            } yield Post(authors, properties, lines)
+          }
+      } yield posts
 
-    final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreach(posts)(updatePost).unit
+    final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreachParDiscard(posts)(updatePost)
   }
 
   object NotionApi extends Accessible[NotionApi]
