@@ -176,6 +176,7 @@ object Domain {
       content
         .replace("\"", "\\\"")
         .replace("\\\\\"", "\\\"")
+        .replaceAll("\n{3,}", "\n\n")
 
     val escapedContent: String =
       cleanedContent
