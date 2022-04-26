@@ -3,7 +3,6 @@ package io.univalence.crier
 import io.univalence.crier.Fixtures.fakePost
 
 import zio.test._
-import zio.test.Assertion._
 
 object DomainTest extends DefaultRunnableSpec {
   override def spec: ZSpec[TestEnvironment, Any] = postSpec
@@ -17,7 +16,7 @@ object DomainTest extends DefaultRunnableSpec {
             |
             |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
-        assert(fakePost.content)(equalTo(result))
+        assertTrue(fakePost.content == result)
       },
       test("Post should build a correct final content with a link") {
         val link             = "https://google.com"
@@ -32,7 +31,7 @@ object DomainTest extends DefaultRunnableSpec {
              |
              |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
-        assert(fakePostWithLink.content)(equalTo(result))
+        assertTrue(fakePostWithLink.content == result)
       },
       test("Post should build a correct final content with a scastie link") {
         val link             = "https://scastie.scala-lang.org/ABC"
@@ -47,12 +46,37 @@ object DomainTest extends DefaultRunnableSpec {
              |
              |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
 
-        assert(fakePostWithLink.content)(equalTo(result))
+        assertTrue(fakePostWithLink.content == result)
       },
       test("Cleaned post should escape quote correctly") {
         val fakePostWithQuote = fakePost.copy(lines = List("My post contains \\\\\" \""))
 
         assertTrue(fakePostWithQuote.escapedContent.contains("\\\""))
+      },
+      test("Post should remove incorrect ending lines") {
+        val original =
+          List(
+            "This is my daily post.",
+            "With a line here.",
+            "",
+            "",
+            "With a lot of content!",
+            "",
+            "",
+            ""
+          )
+
+        val fakePostWithTips = fakePost.copy(lines = original)
+
+        val result =
+          s"""This is my daily post.
+             |With a line here.
+             |
+             |With a lot of content!
+             |
+             |Ce post a été écrit par Jon Doe. 🐇""".stripMargin
+
+        assertTrue(fakePostWithTips.cleanedContent == result)
       }
     )
 }
