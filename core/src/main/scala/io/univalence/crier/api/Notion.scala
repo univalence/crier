@@ -12,7 +12,7 @@ import io.univalence.crier.Domain._
 import io.univalence.crier.Domain.PostStatus.NotValid
 import io.univalence.crier.Main.Configuration
 
-import zio.{Accessible, Console, Task, ZIO, ZLayer}
+import zio.{Accessible, Task, ZIO, ZLayer}
 import zio.config._
 
 import java.time.{LocalDate, ZonedDateTime}
@@ -134,14 +134,14 @@ object Notion {
 
     def retrieveAuthor(authorId: String): Task[String]
 
-    final def retrievePosts(postProperties: List[PostProperties]): ZIO[Console with NotionApi, Throwable, List[Post]] =
+    final def retrievePosts(postProperties: List[PostProperties]): ZIO[NotionApi, Throwable, List[Post]] =
       for {
         memoizedRetrieveAuthor <- ZIO.memoize(retrieveAuthor)
         posts <-
           ZIO.foreachPar(postProperties) { properties =>
             val title = properties.subject.getOrElse("unknown")
             for {
-              _       <- Console.printLine(s"Fetching information for $title post (${properties.id})")
+              _       <- ZIO.logInfo(s"Fetching information for $title post (${properties.id})")
               lines   <- retrievePostLines(properties.id)
               authors <- ZIO.foreachPar(properties.authorIds)(memoizedRetrieveAuthor)
             } yield Post(authors, properties, lines)

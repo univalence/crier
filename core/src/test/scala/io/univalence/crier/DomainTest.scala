@@ -4,7 +4,7 @@ import io.univalence.crier.Fixtures.fakePost
 
 import zio.test._
 
-object DomainTest extends DefaultRunnableSpec {
+object DomainTest extends ZIOSpecDefault {
   override def spec: ZSpec[TestEnvironment, Any] = postSpec
 
   val postSpec: Spec[Any, TestFailure[Nothing], TestSuccess] =

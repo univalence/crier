@@ -20,13 +20,12 @@ ThisBuild / coverageMinimumStmtPerFile      := 50
 ThisBuild / coverageMinimumBranchPerFile    := 50
 
 // -- Lib versions
-lazy val libVersion =
-  new {
-    val zio       = "2.0.0-RC2"
-    val zioConfig = "3.0.0-RC3"
-    val sttp      = "3.5.1"
-    val circe     = "0.14.1"
-  }
+val zio        = "2.0.0-RC5"
+val zioConfig  = "3.0.0-RC8"
+val zioLogging = "2.0.0-RC8"
+val sttp       = "3.5.2"
+val circe      = "0.14.1"
+val sl4j       = "1.7.36"
 
 // -- Main project settings
 lazy val core =
@@ -36,16 +35,19 @@ lazy val core =
       name                := "crier",
       Compile / mainClass := Some("io.univalence.crier.Main"),
       libraryDependencies ++= Seq(
-        "dev.zio"                       %% "zio-test"                      % libVersion.zio % Test,
-        "dev.zio"                       %% "zio-test-sbt"                  % libVersion.zio % Test,
-        "dev.zio"                       %% "zio"                           % libVersion.zio,
-        "dev.zio"                       %% "zio-config"                    % libVersion.zioConfig,
-        "dev.zio"                       %% "zio-config-magnolia"           % libVersion.zioConfig,
-        "com.softwaremill.sttp.client3" %% "core"                          % libVersion.sttp,
-        "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % libVersion.sttp,
-        "com.softwaremill.sttp.client3" %% "circe"                         % libVersion.sttp,
-        "io.circe"                      %% "circe-generic"                 % libVersion.circe,
-        "io.circe"                      %% "circe-generic-extras"          % libVersion.circe
+        "dev.zio"                       %% "zio-test"                      % zio % Test,
+        "dev.zio"                       %% "zio-test-sbt"                  % zio % Test,
+        "dev.zio"                       %% "zio-logging"                   % zioLogging,
+        "dev.zio"                       %% "zio-logging-slf4j"             % zioLogging,
+        "dev.zio"                       %% "zio"                           % zio,
+        "dev.zio"                       %% "zio-config"                    % zioConfig,
+        "dev.zio"                       %% "zio-config-magnolia"           % zioConfig,
+        "com.softwaremill.sttp.client3" %% "core"                          % sttp,
+        "com.softwaremill.sttp.client3" %% "async-http-client-backend-zio" % sttp,
+        "com.softwaremill.sttp.client3" %% "circe"                         % sttp,
+        "io.circe"                      %% "circe-generic"                 % circe,
+        "io.circe"                      %% "circe-generic-extras"          % circe,
+        "org.slf4j"                      % "slf4j-simple"                  % sl4j
       ),
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
       scalacOptions ++= Seq("-Ymacro-annotations")

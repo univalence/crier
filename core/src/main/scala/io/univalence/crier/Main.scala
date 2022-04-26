@@ -10,7 +10,10 @@ import io.univalence.crier.api.Slack.{SlackApi, SlackApiLive}
 
 import zio._
 import zio.config._
-import zio.config.magnolia.DeriveConfigDescriptor.descriptor
+import zio.config.magnolia.descriptor
+import zio.logging._
+import zio.logging.LogFormat._
+import zio.logging.backend.SLF4J
 
 import java.time.{DayOfWeek, LocalDate}
 
@@ -34,7 +37,7 @@ object Main extends ZIOAppDefault {
       database: String
   )
 
-  val configurationLayer: ZLayer[System, ReadError[String], Configuration] =
+  val configurationLayer: Layer[ReadError[String], Configuration] =
     ZConfig.fromSystemEnv(descriptor[Configuration].mapKey(_.toUpperCase), keyDelimiter = Some('_'))
 
   val sttpLayer: Layer[Throwable, SttpClient] = AsyncHttpClientZioBackend.layer()
@@ -64,7 +67,7 @@ object Main extends ZIOAppDefault {
    *
    * Posts should be send from Monday to Friday
    */
-  def assignPublicationDates(posts: List[Post]): ZIO[Clock, Nothing, List[Post]] = {
+  def assignPublicationDates(posts: List[Post]): UIO[List[Post]] = {
     val sortedPosts = sortPosts(posts)
     val publicationDatesEffect =
       ZIO.collectAll(
@@ -87,28 +90,28 @@ object Main extends ZIOAppDefault {
   }
 
   /** Find the post to post today. */
-  def findTodayPost(posts: List[Post]): ZIO[Clock, Nothing, Option[Post]] =
+  def findTodayPost(posts: List[Post]): UIO[Option[Post]] =
     Clock.localDateTime.map(now => posts.find(_.properties.publicationDate.contains(now.toLocalDate)))
 
-  def processNotionDatabase: ZIO[Clock with Console with NotionApi, Throwable, List[Post]] =
+  def processNotionDatabase: ZIO[NotionApi, Throwable, List[Post]] =
     for {
       database <- NotionApi(_.retrieveDatabase)
       postProperties = database.listOfProperties.filter(postShouldBeChecked)
-      _     <- Console.printLine(s"Retrieve ${postProperties.length} rows from Notion")
+      _     <- ZIO.logInfo(s"Retrieve ${postProperties.length} rows from Notion")
       posts <- NotionApi(_.retrievePosts(postProperties))
       validatedPosts                = posts.map(_.validate)
       (pendingPosts, notValidPosts) = partitionPosts(validatedPosts)
-      _ <- Console.printLine(s"${notValidPosts.length} posts are not valid")
-      _ <- Console.printLine(s"${pendingPosts.length} posts are pending")
+      _ <- ZIO.logInfo(s"${notValidPosts.length} posts are not valid")
+      _ <- ZIO.logInfo(s"${pendingPosts.length} posts are pending")
       notValidPostsWithoutPublicationDate = notValidPosts.map(_.withPublicationDate(None))
       _                               <- NotionApi(_.updatePosts(notValidPostsWithoutPublicationDate))
       pendingPostsWithPublicationDate <- assignPublicationDates(pendingPosts)
       _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
     } yield pendingPostsWithPublicationDate
 
-  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
+  def postPage(post: Post): ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
-      _                <- Console.printLine(s"Posting the following content:\n${post.content}")
+      _                <- ZIO.logInfo(s"Posting the following content:\n${post.content}")
       linkedinResponse <- LinkedinApi(_.writePost(post))
       _                <- NotionApi(_.updatePost(post.withStatus(Posted)))
       _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.activity)))
@@ -130,25 +133,31 @@ object Main extends ZIOAppDefault {
       case _ => ZIO.unit
     }
 
-  def program: ZIO[Clock with Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
+  def program: ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       pendingPosts <- processNotionDatabase
       todayPage    <- findTodayPost(pendingPosts)
       _ <-
         todayPage match {
           case Some(page) => postPage(page)
-          case None       => Console.printLine("No post to share today :(")
+          case None       => ZIO.logInfo("No post to share today :(")
         }
       _ <- preventEmptyDatabase(pendingPosts)
 
     } yield ()
 
-  override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
+  val logFormat: LogFormat =
+    label("timestamp", timestamp.fixed(32)).color(LogColor.BLUE) |-|
+      label("thread", fiberId.fixed(12)).color(LogColor.WHITE) |-|
+      label("message", quoted(line)).highlight
+
+  override def hook: RuntimeConfigAspect =
+    RuntimeConfigAspect(_.copy(logger = ZLogger.none)) >>>
+      SLF4J.slf4j(zio.LogLevel.Debug, logFormat, _ => "logger")
+
+  override def run: ZIO[ZIOAppArgs, Any, Any] =
     program
       .provide(
-        System.live,
-        Clock.live,
-        Console.live,
         configurationLayer,
         sttpLayer,
         NotionApiLive.layer,
