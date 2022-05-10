@@ -100,7 +100,7 @@ object Domain {
   final case class Post(
       authors:    List[String],
       properties: PostProperties,
-      lines:      List[String],
+      body:       String,
       errors:     List[String] = Nil
   ) {
     self =>
@@ -171,7 +171,7 @@ object Domain {
          |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité: $url !""".stripMargin
     }
 
-    val tips: String = self.lines.mkString("\n").stripLineEnd
+    val tips: String = self.body.stripLineEnd
 
     /** Build the post from the post description. */
     val content: String = addKeywords(addAuthor(addLink(tips))).stripLineEnd

@@ -3,7 +3,7 @@ package io.univalence.crier.api
 import cats.syntax.functor._
 import io.circe._
 import io.circe.generic.auto._
-import io.circe.generic.extras.{Configuration => CirceConfiguration, _}
+import io.circe.generic.extras.{Configuration => CirceConfiguration, ConfiguredJsonCodec, _}
 import sttp.client3._
 import sttp.client3.asynchttpclient.zio._
 import sttp.client3.circe._
@@ -12,12 +12,17 @@ import io.univalence.crier.Domain._
 import io.univalence.crier.Domain.PostStatus.NotValid
 import io.univalence.crier.Main.Configuration
 
-import zio.{Accessible, Task, ZIO, ZLayer}
+import zio._
 import zio.config._
 
 import java.time.{LocalDate, ZonedDateTime}
 
 object Notion {
+  @ConfiguredJsonCodec
+  final case class NotionPlainText(@JsonKey("plain_text") plainText: String)
+
+  final case class NotionText(text: List[NotionPlainText])
+
   final case class NotionSelectFrom[T](name: T)
 
   final case class NotionSelectProperty[T](select: NotionSelectFrom[T])
@@ -31,9 +36,9 @@ object Notion {
   final case class NotionDateProperty(date: NotionDate)
 
   @ConfiguredJsonCodec
-  final case class NotionRichTextProperty(@JsonKey("rich_text") richText: List[NotionText])
+  final case class NotionRichTextProperty(@JsonKey("rich_text") richText: List[NotionPlainText])
 
-  final case class NotionTitleProperty(title: List[NotionText])
+  final case class NotionTitleProperty(title: List[NotionPlainText])
 
   final case class NotionPeopleProperty(people: List[NotionPeople])
 
@@ -65,50 +70,27 @@ object Notion {
       properties:  NotionProperties
   )
 
-  implicit val decoderResult: Decoder[NotionBlock] =
-    Decoder[NotionBlockParagraph].widen or Decoder[NotionBlockBulletPoint].widen
-
-  sealed trait NotionBlock {
-    val text: List[NotionText]
-
-    def lines: List[String] =
-      text match {
-        case Nil => List("")
-        case l   => l.map(_.plainText)
-      }
-  }
-
-  final case class NotionBlockParagraph(paragraph: NotionParagraph) extends NotionBlock {
-    override val text: List[NotionText] = paragraph.text
-  }
-
-  @ConfiguredJsonCodec
-  final case class NotionBlockBulletPoint(
-      @JsonKey("bulleted_list_item")
-      bullet: NotionBullet
-  ) extends NotionBlock {
-    override val text: List[NotionText] = bullet.text
-  }
-
-  final case class NotionBullet(
-      text: List[NotionText]
-  )
-
-  final case class NotionParagraph(
-      text: List[NotionText]
-  )
-
-  @ConfiguredJsonCodec
-  final case class NotionText(
-      @JsonKey("plain_text")
-      plainText: String
-  )
-
   @ConfiguredJsonCodec
   final case class NotionPeople(
       @JsonKey("id")
       identifier: String
   )
+
+  sealed trait NotionBlock
+
+  object NotionBlock {
+    final case class Paragraph(paragraph: NotionText) extends NotionBlock
+    final case class Code(code: NotionText)           extends NotionBlock
+    @ConfiguredJsonCodec
+    final case class Bullet(@JsonKey("bulleted_list_item") bulletedListItem: NotionText) extends NotionBlock
+
+    implicit val decoder: Decoder[NotionBlock] =
+      List[Decoder[NotionBlock]](
+        Decoder[Paragraph].widen,
+        Decoder[Bullet].widen,
+        Decoder[Code].widen
+      ).reduceLeft(_ or _)
+  }
 
   final case class NotionBlocks(
       results: List[NotionBlock]
@@ -128,7 +110,7 @@ object Notion {
   trait NotionApi {
     def retrieveDatabase: Task[PropertiesDatabase]
 
-    def retrievePostLines(postId: String): Task[List[String]]
+    def retrievePostBody(postId: String): Task[String]
 
     def updatePost(page: Post): Task[Unit]
 
@@ -142,9 +124,9 @@ object Notion {
             val title = properties.subject.getOrElse("unknown")
             for {
               _       <- ZIO.logInfo(s"Fetching information for $title post (${properties.id})")
-              lines   <- retrievePostLines(properties.id)
+              body    <- retrievePostBody(properties.id)
               authors <- ZIO.foreachPar(properties.authorIds)(memoizedRetrieveAuthor)
-            } yield Post(authors, properties, lines)
+            } yield Post(authors, properties, body)
           }
       } yield posts
 
@@ -172,7 +154,7 @@ object Notion {
       Api.succeedOrDie(sttp.send(request)).map(PropertiesDatabase.fromNotionDatabase)
     }
 
-    override def retrievePostLines(postId: String): Task[List[String]] = {
+    override def retrievePostBody(postId: String): Task[String] = {
       val request =
         defaultRequest
           .header("Content-Type", "application/json")
@@ -182,7 +164,16 @@ object Notion {
 
       val response = Api.succeedOrDie(sttp.send(request))
 
-      response.map(_.results.flatMap(_.lines))
+      response
+        .map(
+          _.results
+            .map {
+              case NotionBlock.Paragraph(paragraph)     => paragraph.text.map(_.plainText).mkString("\n")
+              case NotionBlock.Bullet(bulletedListItem) => s"👉 ${bulletedListItem.text.map(_.plainText).reduce(_ + _)}"
+              case NotionBlock.Code(code)               => code.text.map(t => s"> ${t.plainText}").mkString("\n")
+            }
+            .mkString("\n")
+        )
     }
 
     override def retrieveAuthor(authorId: String): Task[String] = {

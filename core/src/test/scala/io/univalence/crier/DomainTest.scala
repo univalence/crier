@@ -49,24 +49,22 @@ object DomainTest extends ZIOSpecDefault {
         assertTrue(fakePostWithLink.content == result)
       },
       test("Cleaned post should escape quote correctly") {
-        val fakePostWithQuote = fakePost.copy(lines = List("My post contains \\\\\" \""))
+        val fakePostWithQuote = fakePost.copy(body = "My post contains \\\\\" \"")
 
         assertTrue(fakePostWithQuote.escapedContent.contains("\\\""))
       },
       test("Post should remove incorrect ending lines") {
         val original =
-          List(
-            "This is my daily post.",
-            "With a line here.",
-            "",
-            "",
-            "With a lot of content!",
-            "",
-            "",
-            ""
-          )
+          """This is my daily post.
+            |With a line here.
+            |
+            |
+            |With a lot of content!
+            |
+            |
+            |""".stripMargin
 
-        val fakePostWithTips = fakePost.copy(lines = original)
+        val fakePostWithTips = fakePost.copy(body = original)
 
         val result =
           s"""This is my daily post.
