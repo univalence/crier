@@ -117,21 +117,30 @@ object Main extends ZIOAppDefault {
       _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.activity)))
     } yield ()
 
-  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =
-    pendingPosts.length match {
-      case x if x < 5 =>
-        val url: String =
-          "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
+  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] = {
+    val url: String =
+      "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
 
+    pendingPosts.length match {
+      case x if x <= 1 =>
         SlackApi(
           _.sendMessage(
-            s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
+            s"""Aïe, le stock de post est vide, il ne reste plus aucun post en reserve.
+               |
+               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
+          )
+        )
+      case x if x <= 4 =>
+        SlackApi(
+          _.sendMessage(
+            s"""Aïe, le stock de post est casi vide, il ne reste plus que ${x - 1} posts en reserve.
                |
                |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
           )
         )
       case _ => ZIO.unit
     }
+  }
 
   def program: ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
