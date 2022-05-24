@@ -20,12 +20,11 @@ ThisBuild / coverageMinimumStmtPerFile      := 50
 ThisBuild / coverageMinimumBranchPerFile    := 50
 
 // -- Lib versions
-val zio        = "2.0.0-RC5"
-val zioConfig  = "3.0.0-RC8"
-val zioLogging = "2.0.0-RC8"
-val sttp       = "3.5.2"
-val circe      = "0.14.1"
-val sl4j       = "1.7.36"
+val zio       = "2.0.0-RC6"
+val zioConfig = "3.0.0-RC9"
+val sttp      = "3.6.2"
+val circe     = "0.14.1"
+val sl4j      = "1.7.36"
 
 // -- Main project settings
 lazy val core =
@@ -37,8 +36,6 @@ lazy val core =
       libraryDependencies ++= Seq(
         "dev.zio"                       %% "zio-test"                      % zio % Test,
         "dev.zio"                       %% "zio-test-sbt"                  % zio % Test,
-        "dev.zio"                       %% "zio-logging"                   % zioLogging,
-        "dev.zio"                       %% "zio-logging-slf4j"             % zioLogging,
         "dev.zio"                       %% "zio"                           % zio,
         "dev.zio"                       %% "zio-config"                    % zioConfig,
         "dev.zio"                       %% "zio-config-magnolia"           % zioConfig,

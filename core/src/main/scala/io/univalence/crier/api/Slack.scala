@@ -5,7 +5,7 @@ import sttp.client3.asynchttpclient.zio._
 
 import io.univalence.crier.Main.Configuration
 
-import zio.{Accessible, Task, ZIO, ZLayer}
+import zio._
 import zio.config._
 
 object Slack {
@@ -13,7 +13,10 @@ object Slack {
     def sendMessage(message: String): Task[Unit]
   }
 
-  object SlackApi extends Accessible[SlackApi]
+  object SlackApi {
+    def sendMessage(message: String): ZIO[SlackApi, Throwable, Unit] =
+      ZIO.service[SlackApi].flatMap(_.sendMessage(message))
+  }
 
   final case class SlackApiLive(configuration: Configuration, sttp: SttpClient) extends SlackApi {
     val url: String = s"https://hooks.slack.com/services/${configuration.slack.webhook}"
