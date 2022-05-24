@@ -112,11 +112,11 @@ object Notion {
 
     def retrievePostBody(postId: String): Task[String]
 
-    def updatePost(page: Post): Task[Unit]
+    def updatePost(post: Post): Task[Unit]
 
     def retrieveAuthor(authorId: String): Task[String]
 
-    final def retrievePosts(postProperties: List[PostProperties]): ZIO[NotionApi, Throwable, List[Post]] =
+    final def retrievePosts(postProperties: List[PostProperties]): Task[List[Post]] =
       for {
         memoizedRetrieveAuthor <- ZIO.memoize(retrieveAuthor)
         posts <-
@@ -133,7 +133,25 @@ object Notion {
     final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] = ZIO.foreachParDiscard(posts)(updatePost)
   }
 
-  object NotionApi extends Accessible[NotionApi]
+  object NotionApi {
+    def retrieveDatabase: ZIO[NotionApi, Throwable, PropertiesDatabase] =
+      ZIO.service[NotionApi].flatMap(_.retrieveDatabase)
+
+    def retrievePostBody(postId: String): ZIO[NotionApi, Throwable, String] =
+      ZIO.service[NotionApi].flatMap(_.retrievePostBody(postId))
+
+    def updatePost(page: Post): ZIO[NotionApi, Throwable, Unit] = ZIO.service[NotionApi].flatMap(_.updatePost(page))
+
+    def retrieveAuthor(authorId: String): ZIO[NotionApi, Throwable, String] =
+      ZIO.service[NotionApi].flatMap(_.retrieveAuthor(authorId))
+
+    final def retrievePosts(postProperties: List[PostProperties]): ZIO[NotionApi, Throwable, List[Post]] =
+      ZIO.service[NotionApi].flatMap(_.retrievePosts(postProperties))
+
+    final def updatePosts(posts: List[Post]): ZIO[NotionApi, Throwable, Unit] =
+      ZIO.service[NotionApi].flatMap(_.updatePosts(posts))
+
+  }
 
   final case class NotionApiLive(configuration: Configuration, sttp: SttpClient) extends NotionApi {
     val url: String = "https://api.notion.com/v1"
@@ -189,9 +207,9 @@ object Notion {
       response.map(_.name)
     }
 
-    override def updatePost(page: Post): Task[Unit] = {
+    override def updatePost(post: Post): Task[Unit] = {
       val stringifiedPublicationDateJson =
-        page.properties.publicationDate match {
+        post.properties.publicationDate match {
           case Some(date) =>
             s""",
                |"Date de publication": {
@@ -208,7 +226,7 @@ object Notion {
               |""".stripMargin
         }
       val stringiedErrors =
-        page.errors match {
+        post.errors match {
           case Nil =>
             """,
               |"Erreurs": {
@@ -230,7 +248,7 @@ object Notion {
                |""".stripMargin
         }
 
-      val stringifiedStatus = PostStatus.toNotion(page.properties.status.getOrElse(NotValid))
+      val stringifiedStatus = PostStatus.toNotion(post.properties.status.getOrElse(NotValid))
 
       val request =
         defaultRequest
@@ -250,7 +268,7 @@ object Notion {
                |}
                |""".stripMargin
           )
-          .patch(uri"$url/pages/${page.properties.id}")
+          .patch(uri"$url/pages/${post.properties.id}")
 
       Api.succeedOrDieWithoutValue(sttp.send(request))
     }

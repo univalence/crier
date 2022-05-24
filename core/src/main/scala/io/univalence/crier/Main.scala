@@ -11,9 +11,6 @@ import io.univalence.crier.api.Slack.{SlackApi, SlackApiLive}
 import zio._
 import zio.config._
 import zio.config.magnolia.descriptor
-import zio.logging._
-import zio.logging.LogFormat._
-import zio.logging.backend.SLF4J
 
 import java.time.{DayOfWeek, LocalDate}
 
@@ -95,26 +92,26 @@ object Main extends ZIOAppDefault {
 
   def processNotionDatabase: ZIO[NotionApi, Throwable, List[Post]] =
     for {
-      database <- NotionApi(_.retrieveDatabase)
+      database <- NotionApi.retrieveDatabase
       postProperties = database.listOfProperties.filter(postShouldBeChecked)
       _     <- ZIO.logInfo(s"Retrieve ${postProperties.length} rows from Notion")
-      posts <- NotionApi(_.retrievePosts(postProperties))
+      posts <- NotionApi.retrievePosts(postProperties)
       validatedPosts                = posts.map(_.validate)
       (pendingPosts, notValidPosts) = partitionPosts(validatedPosts)
       _ <- ZIO.logInfo(s"${notValidPosts.length} posts are not valid")
       _ <- ZIO.logInfo(s"${pendingPosts.length} posts are pending")
       notValidPostsWithoutPublicationDate = notValidPosts.map(_.withPublicationDate(None))
-      _                               <- NotionApi(_.updatePosts(notValidPostsWithoutPublicationDate))
+      _                               <- NotionApi.updatePosts(notValidPostsWithoutPublicationDate)
       pendingPostsWithPublicationDate <- assignPublicationDates(pendingPosts)
-      _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
+      _                               <- NotionApi.updatePosts(pendingPostsWithPublicationDate)
     } yield pendingPostsWithPublicationDate
 
   def postPage(post: Post): ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       _                <- ZIO.logInfo(s"Posting the following content:\n${post.content}")
-      linkedinResponse <- LinkedinApi(_.writePost(post))
-      _                <- NotionApi(_.updatePost(post.withStatus(Posted)))
-      _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.activity)))
+      linkedinResponse <- LinkedinApi.writePost(post)
+      _                <- NotionApi.updatePost(post.withStatus(Posted))
+      _                <- SlackApi.sendMessage(post.toSlack(linkedinResponse.activity))
     } yield ()
 
   def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] = {
@@ -123,20 +120,16 @@ object Main extends ZIOAppDefault {
 
     pendingPosts.length match {
       case x if x <= 1 =>
-        SlackApi(
-          _.sendMessage(
-            s"""Aïe, le stock de post est vide, il ne reste plus aucun post en reserve.
-               |
-               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
-          )
+        SlackApi.sendMessage(
+          s"""Aïe, le stock de post est vide, il ne reste plus aucun post en reserve.
+             |
+             |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
         )
       case x if x <= 4 =>
-        SlackApi(
-          _.sendMessage(
-            s"""Aïe, le stock de post est casi vide, il ne reste plus que ${x - 1} posts en reserve.
-               |
-               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
-          )
+        SlackApi.sendMessage(
+          s"""Aïe, le stock de post est casi vide, il ne reste plus que ${x - 1} posts en reserve.
+             |
+             |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
         )
       case _ => ZIO.unit
     }
@@ -154,15 +147,6 @@ object Main extends ZIOAppDefault {
       _ <- preventEmptyDatabase(pendingPosts)
 
     } yield ()
-
-  val logFormat: LogFormat =
-    label("timestamp", timestamp.fixed(32)).color(LogColor.BLUE) |-|
-      label("thread", fiberId.fixed(12)).color(LogColor.WHITE) |-|
-      label("message", quoted(line)).highlight
-
-  override def hook: RuntimeConfigAspect =
-    RuntimeConfigAspect(_.copy(logger = ZLogger.none)) >>>
-      SLF4J.slf4j(zio.LogLevel.Debug, logFormat, _ => "logger")
 
   override def run: ZIO[ZIOAppArgs, Any, Any] =
     program

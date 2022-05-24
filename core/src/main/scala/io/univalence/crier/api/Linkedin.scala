@@ -8,8 +8,9 @@ import sttp.client3.circe._
 import io.univalence.crier.Domain.Post
 import io.univalence.crier.Main.Configuration
 
-import zio.{Accessible, Task, ZIO, ZLayer}
+import zio._
 import zio.config._
+
 object Linkedin {
   final case class LinkedinResponse(activity: String)
 
@@ -17,7 +18,10 @@ object Linkedin {
     def writePost(post: Post): Task[LinkedinResponse]
   }
 
-  object LinkedinApi extends Accessible[LinkedinApi]
+  object LinkedinApi {
+    def writePost(post: Post): ZIO[LinkedinApi, Throwable, LinkedinResponse] =
+      ZIO.service[LinkedinApi].flatMap(_.writePost(post))
+  }
 
   final case class LinkedinApiLive(configuration: Configuration, sttp: SttpClient) extends LinkedinApi {
     val url: String = "https://api.linkedin.com/v2"
