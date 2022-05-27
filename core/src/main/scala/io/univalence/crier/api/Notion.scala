@@ -76,13 +76,21 @@ object Notion {
       identifier: String
   )
 
-  sealed trait NotionBlock
+  sealed trait NotionBlock {
+    def toText: String
+  }
 
   object NotionBlock {
-    final case class Paragraph(paragraph: NotionText) extends NotionBlock
-    final case class Code(code: NotionText)           extends NotionBlock
+    final case class Paragraph(paragraph: NotionText) extends NotionBlock {
+      override def toText: String = paragraph.text.map(_.plainText).mkString("\n")
+    }
+    final case class Code(code: NotionText) extends NotionBlock {
+      override def toText: String = code.text.flatMap(_.plainText.split("\n")).map("> " + _).mkString("\n")
+    }
     @ConfiguredJsonCodec
-    final case class Bullet(@JsonKey("bulleted_list_item") bulletedListItem: NotionText) extends NotionBlock
+    final case class Bullet(@JsonKey("bulleted_list_item") bulletedListItem: NotionText) extends NotionBlock {
+      override def toText: String = bulletedListItem.text.flatMap(_.plainText.split("\n")).map("👉 " + _).mkString("\n")
+    }
 
     implicit val decoder: Decoder[NotionBlock] =
       List[Decoder[NotionBlock]](
@@ -185,11 +193,7 @@ object Notion {
       response
         .map(
           _.results
-            .map {
-              case NotionBlock.Paragraph(paragraph)     => paragraph.text.map(_.plainText).mkString("\n")
-              case NotionBlock.Bullet(bulletedListItem) => s"👉 ${bulletedListItem.text.map(_.plainText).reduce(_ + _)}"
-              case NotionBlock.Code(code)               => code.text.map(t => s"> ${t.plainText}").mkString("\n")
-            }
+            .map(_.toText)
             .mkString("\n")
         )
     }
