@@ -10,7 +10,7 @@ import io.univalence.crier.api.Slack.{SlackApi, SlackApiLive}
 
 import zio._
 import zio.config._
-import zio.config.magnolia.DeriveConfigDescriptor.descriptor
+import zio.config.magnolia.descriptor
 
 import java.time.{DayOfWeek, LocalDate}
 
@@ -34,7 +34,7 @@ object Main extends ZIOAppDefault {
       database: String
   )
 
-  val configurationLayer: ZLayer[System, ReadError[String], Configuration] =
+  val configurationLayer: Layer[ReadError[String], Configuration] =
     ZConfig.fromSystemEnv(descriptor[Configuration].mapKey(_.toUpperCase), keyDelimiter = Some('_'))
 
   val sttpLayer: Layer[Throwable, SttpClient] = AsyncHttpClientZioBackend.layer()
@@ -64,7 +64,7 @@ object Main extends ZIOAppDefault {
    *
    * Posts should be send from Monday to Friday
    */
-  def assignPublicationDates(posts: List[Post]): ZIO[Clock, Nothing, List[Post]] = {
+  def assignPublicationDates(posts: List[Post]): UIO[List[Post]] = {
     val sortedPosts = sortPosts(posts)
     val publicationDatesEffect =
       ZIO.collectAll(
@@ -87,68 +87,70 @@ object Main extends ZIOAppDefault {
   }
 
   /** Find the post to post today. */
-  def findTodayPost(posts: List[Post]): ZIO[Clock, Nothing, Option[Post]] =
+  def findTodayPost(posts: List[Post]): UIO[Option[Post]] =
     Clock.localDateTime.map(now => posts.find(_.properties.publicationDate.contains(now.toLocalDate)))
 
-  def processNotionDatabase: ZIO[Clock with Console with NotionApi, Throwable, List[Post]] =
+  def processNotionDatabase: ZIO[NotionApi, Throwable, List[Post]] =
     for {
-      database <- NotionApi(_.retrieveDatabase)
+      database <- NotionApi.retrieveDatabase
       postProperties = database.listOfProperties.filter(postShouldBeChecked)
-      _     <- Console.printLine(s"Retrieve ${postProperties.length} rows from Notion")
-      posts <- NotionApi(_.retrievePosts(postProperties))
+      _     <- ZIO.logInfo(s"Retrieve ${postProperties.length} rows from Notion")
+      posts <- NotionApi.retrievePosts(postProperties)
       validatedPosts                = posts.map(_.validate)
       (pendingPosts, notValidPosts) = partitionPosts(validatedPosts)
-      _ <- Console.printLine(s"${notValidPosts.length} posts are not valid")
-      _ <- Console.printLine(s"${pendingPosts.length} posts are pending")
+      _ <- ZIO.logInfo(s"${notValidPosts.length} posts are not valid")
+      _ <- ZIO.logInfo(s"${pendingPosts.length} posts are pending")
       notValidPostsWithoutPublicationDate = notValidPosts.map(_.withPublicationDate(None))
-      _                               <- NotionApi(_.updatePosts(notValidPostsWithoutPublicationDate))
+      _                               <- NotionApi.updatePosts(notValidPostsWithoutPublicationDate)
       pendingPostsWithPublicationDate <- assignPublicationDates(pendingPosts)
-      _                               <- NotionApi(_.updatePosts(pendingPostsWithPublicationDate))
+      _                               <- NotionApi.updatePosts(pendingPostsWithPublicationDate)
     } yield pendingPostsWithPublicationDate
 
-  def postPage(post: Post): ZIO[Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
+  def postPage(post: Post): ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
-      _                <- Console.printLine(s"Posting the following content:\n${post.content}")
-      linkedinResponse <- LinkedinApi(_.writePost(post))
-      _                <- NotionApi(_.updatePost(post.withStatus(Posted)))
-      _                <- SlackApi(_.sendMessage(post.toSlack(linkedinResponse.activity)))
+      _                <- ZIO.logInfo(s"Posting the following content:\n${post.content}")
+      linkedinResponse <- LinkedinApi.writePost(post)
+      _                <- NotionApi.updatePost(post.withStatus(Posted))
+      _                <- SlackApi.sendMessage(post.toSlack(linkedinResponse.activity))
     } yield ()
 
-  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] =
-    pendingPosts.length match {
-      case x if x < 5 =>
-        val url: String =
-          "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
+  def preventEmptyDatabase(pendingPosts: List[Post]): ZIO[SlackApi, Throwable, Unit] = {
+    val url: String =
+      "https://www.notion.so/univalence/3868f708ae46461fbfcf72d34c9536f9?v=26ccdeca69d849c09e2b372737ee2040"
 
-        SlackApi(
-          _.sendMessage(
-            s"""Aïe, le stock de post est casi vide, il ne reste plus que $x posts en reserve.
-               |
-               |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
-          )
+    pendingPosts.length match {
+      case x if x <= 1 =>
+        SlackApi.sendMessage(
+          s"""Aïe, le stock de post est vide, il ne reste plus aucun post en reserve.
+             |
+             |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
+        )
+      case x if x <= 4 =>
+        SlackApi.sendMessage(
+          s"""Aïe, le stock de post est casi vide, il ne reste plus que ${x - 1} posts en reserve.
+             |
+             |N'hésitez pas à rajouter du contenue: $url.""".stripMargin
         )
       case _ => ZIO.unit
     }
+  }
 
-  def program: ZIO[Clock with Console with NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
+  def program: ZIO[NotionApi with LinkedinApi with SlackApi, Throwable, Unit] =
     for {
       pendingPosts <- processNotionDatabase
       todayPage    <- findTodayPost(pendingPosts)
       _ <-
         todayPage match {
           case Some(page) => postPage(page)
-          case None       => Console.printLine("No post to share today :(")
+          case None       => ZIO.logInfo("No post to share today :(")
         }
       _ <- preventEmptyDatabase(pendingPosts)
 
     } yield ()
 
-  override def run: ZIO[ZEnv with ZIOAppArgs, Any, Any] =
+  override def run: ZIO[ZIOAppArgs, Any, Any] =
     program
       .provide(
-        System.live,
-        Clock.live,
-        Console.live,
         configurationLayer,
         sttpLayer,
         NotionApiLive.layer,

@@ -23,10 +23,8 @@ object Fixtures {
           publicationDate = None,
           link            = None
         ),
-      lines =
-        List(
-          "This is my daily post.",
-          "With a lot of content!"
-        )
+      body =
+        """This is my daily post.
+          |With a lot of content!""".stripMargin
     )
 }

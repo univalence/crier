@@ -50,19 +50,23 @@ object Domain {
 
     case object Tool extends PostKind
 
+    case object Exercise extends PostKind
+
     implicit val decodePostKind: Decoder[PostKind] =
       Decoder[String].emap {
-        case "Tips"    => Right(PostKind.Tips)
-        case "Library" => Right(PostKind.Library)
-        case "Tool"    => Right(PostKind.Tool)
-        case v         => Left(s"$v is not a valid post")
+        case "Tips"     => Right(PostKind.Tips)
+        case "Library"  => Right(PostKind.Library)
+        case "Tool"     => Right(PostKind.Tool)
+        case "Exercise" => Right(PostKind.Exercise)
+        case v          => Left(s"$v is not a valid post")
       }
 
     implicit val encodePostKind: Encoder[PostKind] =
       Encoder[String].contramap {
-        case Tips    => "Tips"
-        case Library => "Library"
-        case Tool    => "Tool"
+        case Tips     => "Tips"
+        case Library  => "Library"
+        case Tool     => "Tool"
+        case Exercise => "Exercise"
       }
   }
 
@@ -96,7 +100,7 @@ object Domain {
   final case class Post(
       authors:    List[String],
       properties: PostProperties,
-      lines:      List[String],
+      body:       String,
       errors:     List[String] = Nil
   ) {
     self =>
@@ -167,7 +171,7 @@ object Domain {
          |ℹ️ N'hesitez pas à le liker sur Linkedin pour augmenter sa visibilité: $url !""".stripMargin
     }
 
-    val tips: String = self.lines.mkString("\n").stripLineEnd
+    val tips: String = self.body.stripLineEnd
 
     /** Build the post from the post description. */
     val content: String = addKeywords(addAuthor(addLink(tips))).stripLineEnd
@@ -176,6 +180,7 @@ object Domain {
       content
         .replace("\"", "\\\"")
         .replace("\\\\\"", "\\\"")
+        .replaceAll("\n{3,}", "\n\n")
 
     val escapedContent: String =
       cleanedContent

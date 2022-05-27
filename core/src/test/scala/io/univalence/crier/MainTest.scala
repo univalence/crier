@@ -9,12 +9,12 @@ import zio.test.Assertion._
 
 import java.time.{DayOfWeek, LocalDate}
 
-object MainTest extends DefaultRunnableSpec {
+object MainTest extends ZIOSpecDefault {
 
-  def spec: Spec[Annotations with Live with TestClock, TestFailure[Any], TestSuccess] =
+  def spec: Spec[TestEnvironment, Any] =
     sortPostsSpec + partitionPostsSpec + assignPublicationDatesSpec + findTodayPostSpec
 
-  val sortPostsSpec: Spec[Any, TestFailure[Nothing], TestSuccess] =
+  val sortPostsSpec: Spec[TestEnvironment, Any] =
     suite("sortPosts Spec")(
       test("sortPosts should sort by creation date if there is no publication date") {
         val firstPost: Post  = fakePost.withCreatedTime(zonedDateTime.minusDays(1))
@@ -22,7 +22,7 @@ object MainTest extends DefaultRunnableSpec {
 
         val posts: List[Post] = List(secondPost, firstPost)
 
-        assert(sortPosts(posts))(equalTo(List(firstPost, secondPost)))
+        assertTrue(sortPosts(posts) == List(firstPost, secondPost))
       },
       test("sortPosts should prioritize some publication date over none") {
         val firstPost: Post  = fakePost.withPublicationDate(Some(LocalDate.of(2022, 1, 1)))
@@ -30,7 +30,7 @@ object MainTest extends DefaultRunnableSpec {
 
         val posts: List[Post] = List(secondPost, firstPost)
 
-        assert(sortPosts(posts))(equalTo(List(firstPost, secondPost)))
+        assertTrue(sortPosts(posts) == List(firstPost, secondPost))
       },
       test("sortPosts should prioritize publication date over creation date") {
         val firstPost: Post =
@@ -43,11 +43,11 @@ object MainTest extends DefaultRunnableSpec {
 
         val posts: List[Post] = List(secondPost, firstPost)
 
-        assert(sortPosts(posts))(equalTo(List(firstPost, secondPost)))
+        assertTrue(sortPosts(posts) == List(firstPost, secondPost))
       }
     )
 
-  val partitionPostsSpec: Spec[Any, TestFailure[Nothing], TestSuccess] =
+  val partitionPostsSpec: Spec[TestEnvironment, Any] =
     suite("partitionPosts Spec")(
       test("partitionPosts should separate posts according to their status in two groups") {
         val firstPost: Post  = fakePost.withStatus(PostStatus.NotValid)
@@ -56,11 +56,11 @@ object MainTest extends DefaultRunnableSpec {
 
         val posts: List[Post] = List(secondPost, firstPost, thirdPost)
 
-        assert(partitionPosts(posts))(equalTo((List(secondPost), List(firstPost, thirdPost))))
+        assertTrue(partitionPosts(posts) == (List(secondPost), List(firstPost, thirdPost)))
       }
     )
 
-  val assignPublicationDatesSpec: Spec[TestClock, TestFailure[Nothing], TestSuccess] =
+  val assignPublicationDatesSpec: Spec[TestEnvironment, Any] =
     suite("assignPublicationDates Spec")(
       test("assignPublicationDates should assign consecutive publication date") {
         val posts: List[Post] = List(fakePost, fakePost)
@@ -105,7 +105,7 @@ object MainTest extends DefaultRunnableSpec {
       }
     )
 
-  val findTodayPostSpec: Spec[TestClock, TestFailure[Nothing], TestSuccess] =
+  val findTodayPostSpec: Spec[TestEnvironment, Any] =
     suite("findTodayPost Spec")(
       test("findTodayPost should find a post if its publication date is today") {
         val dateTimeReference = zonedDateTime.toOffsetDateTime
